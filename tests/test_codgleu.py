@@ -4,11 +4,11 @@ from typing import Any, List
 
 import pytest
 
-from codebleu.codebleu import AVAILABLE_LANGS, calc_codebleu
+from codegleu.codegleu import AVAILABLE_LANGS, calc_codegleu
 
 
 @pytest.mark.parametrize(
-    ["predictions", "references", "codebleu"],
+    ["predictions", "references", "codegleu"],
     [
         (["some rannnndom words in length more than 3"], ["def test ( ) :\n pass"], 0.25),  # cause data_flow=1
         (["def bar ( y , x ) :\n    a = x * x\n    return a"], ["def foo ( x ) :\n    return x"], 0.36),
@@ -17,16 +17,16 @@ from codebleu.codebleu import AVAILABLE_LANGS, calc_codebleu
         (["def foo ( x ) :\n    return x"], ["def foo ( x ) :\n    return x"], 1.0),
     ],
 )
-def test_simple_cases(predictions: List[Any], references: List[Any], codebleu: float) -> None:
-    result = calc_codebleu(references, predictions, "python")
+def test_simple_cases(predictions: List[Any], references: List[Any], codegleu: float) -> None:
+    result = calc_codegleu(references, predictions, "python")
     logging.debug(result)
-    assert result["codebleu"] == pytest.approx(codebleu, 0.01)
+    assert result["codegleu"] == pytest.approx(codegleu, 0.01)
 
 
 @pytest.mark.parametrize(["lang"], [(lang,) for lang in AVAILABLE_LANGS])
 def test_exact_match_works_for_all_langs(lang: str) -> None:
     predictions = references = ["some matching string a couple of times"]
-    assert calc_codebleu(references, predictions, lang)["codebleu"] == 1.0
+    assert calc_codegleu(references, predictions, lang)["codegleu"] == 1.0
 
 
 @pytest.mark.parametrize(
@@ -45,23 +45,23 @@ def test_exact_match_works_for_all_langs(lang: str) -> None:
     ],
 )
 def test_simple_cases_work_for_all_langs(lang: str, predictions: List[Any], references: List[Any]) -> None:
-    result = calc_codebleu(references, predictions, lang)
+    result = calc_codegleu(references, predictions, lang)
     logging.debug(result)
-    assert result["codebleu"] == pytest.approx(0.6, 0.1)
+    assert result["codegleu"] == pytest.approx(0.6, 0.1)
 
 
 def test_error_when_lang_not_supported() -> None:
     with pytest.raises(AssertionError):
-        calc_codebleu(["def foo : pass"], ["def bar : pass"], "not_supported_lang")
+        calc_codegleu(["def foo : pass"], ["def bar : pass"], "not_supported_lang")
 
 
 def test_error_when_input_length_mismatch() -> None:
     with pytest.raises(AssertionError):
-        calc_codebleu(["def foo : pass"], ["def bar : pass", "def buz : pass"], "python")
+        calc_codegleu(["def foo : pass"], ["def bar : pass", "def buz : pass"], "python")
 
 
 @pytest.mark.parametrize(
-    ["predictions", "references", "bleu", "syntax_match", "dataflow_match", "codebleu"],
+    ["predictions", "references", "bleu", "syntax_match", "dataflow_match", "codegleu"],
     [
         # https://github.com/microsoft/CodeXGLUE/blob/main/Code-Code/code-to-code-trans/example.png
         (
@@ -98,9 +98,9 @@ def test_code_x_glue_readme_examples(
     bleu: float,
     syntax_match: float,
     dataflow_match: float,
-    codebleu: float,
+    codegleu: float,
 ) -> None:
-    result = calc_codebleu(references, predictions, "java")
+    result = calc_codegleu(references, predictions, "java")
     logging.debug(result)
 
     print(result)
@@ -108,13 +108,13 @@ def test_code_x_glue_readme_examples(
     assert result["ngram_match_score"] == pytest.approx(bleu, 0.01)
     assert result["syntax_match_score"] == pytest.approx(syntax_match, 0.01)
     assert result["dataflow_match_score"] == pytest.approx(dataflow_match, 0.01)
-    assert result["codebleu"] == pytest.approx(codebleu, 0.01)
+    assert result["codegleu"] == pytest.approx(codegleu, 0.01)
 
     # assert False
 
 
 @pytest.mark.parametrize(
-    ["predictions", "references", "codebleu"],
+    ["predictions", "references", "codegleu"],
     [
         # ([], [], 1.0),
         # ([], [[]], 1.0),
@@ -124,8 +124,8 @@ def test_code_x_glue_readme_examples(
         (["def foo ( x ) : pass"], [["def foo ( x ) : pass", "def bar ( x ) : pass"]], 0.95),
     ],
 )
-def test_input_variants(predictions: List[Any], references: List[Any], codebleu: float) -> None:
-    assert calc_codebleu(references, predictions, "python")["codebleu"] == pytest.approx(codebleu, 0.01)
+def test_input_variants(predictions: List[Any], references: List[Any], codegleu: float) -> None:
+    assert calc_codegleu(references, predictions, "python")["codegleu"] == pytest.approx(codegleu, 0.01)
 
 
 # TODO: fix this test
@@ -181,7 +181,7 @@ def test_finite_processing_time_in_bug_testcase() -> None:
     )
 
     # just test finite processing time
-    calc_codebleu([dummy_true_code], [generated_code], "python")
+    calc_codegleu([dummy_true_code], [generated_code], "python")
 
 
 # TODO: add tests with direct comparison with XLCoST and CodeXGlue results

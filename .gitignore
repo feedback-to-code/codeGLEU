@@ -1,18 +1,18 @@
 # tree-sitter packages
-codebleu/parser/tree-sitter/
-codebleu/parser/*.so
-codebleu/parser/*.dylib
-codebleu/parser/*.dll
+codegleu/parser/tree-sitter/
+codegleu/parser/*.so
+codegleu/parser/*.dylib
+codegleu/parser/*.dll
 
-/codebleu/parser/tree-sitter-c-sharp/
-/codebleu/parser/tree-sitter-go/
-/codebleu/parser/tree-sitter-java/
-/codebleu/parser/tree-sitter-javascript/
-/codebleu/parser/tree-sitter-php/
-/codebleu/parser/tree-sitter-python/
-/codebleu/parser/tree-sitter-ruby/
+/codegleu/parser/tree-sitter-c-sharp/
+/codegleu/parser/tree-sitter-go/
+/codegleu/parser/tree-sitter-java/
+/codegleu/parser/tree-sitter-javascript/
+/codegleu/parser/tree-sitter-php/
+/codegleu/parser/tree-sitter-python/
+/codegleu/parser/tree-sitter-ruby/
 /tree_sitter/
-codebleu/*.so
+codegleu/*.so
 
 
 # Byte-compiled / optimized / DLL files

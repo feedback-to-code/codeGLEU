@@ -4,19 +4,19 @@ build-backend = "setuptools.build_meta"
 
 
 [project]
-name = "codebleu"
-description = "Unofficial CodeBLEU implementation that supports Linux, MacOS and Windows available on PyPI."
+name = "codegleu"
+description = "CodeGLEU metric implementation."
 readme = "README.md"
 license = {text = "MIT License"}
 authors = [
-  {name = "Konstantin Chernyshev", email = "kdchernyshev+github@gmail.com"},
+  {name = "Fritz Darchinger", email = " Fritz.Darchinger@student.hpi.uni-potsdam.de"},
 ]
-keywords = ["codebleu", "code", "bleu", "nlp", "natural language processing", "programming", "evaluate", "evaluation", "code generation", "metrics"]
+keywords = ["codegleu", "codebleu", "code", "bleu", "nlp", "natural language processing", "programming", "evaluate", "evaluation", "code generation", "metrics"]
 dynamic = ["version"]
 
 requires-python = ">=3.9"
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 1 - Beta",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
     "Typing :: Typed"
@@ -32,8 +32,8 @@ include-package-data = true
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["codebleu", "codebleu.parser"]
-exclude = ["tests", "tests.*", "codebleu.parser.tree-sitter"]
+include = ["codegleu", "codegleu.parser"]
+exclude = ["tests", "tests.*", "codegleu.parser.tree-sitter"]
 
 
 [tool.setuptools.package-data]
@@ -41,10 +41,10 @@ exclude = ["tests", "tests.*", "codebleu.parser.tree-sitter"]
 
 
 [project.scripts]
-codebleu = "codebleu.__main__:main"
+codegleu = "codegleu.__main__:main"
 
 [project.urls]
-homepage = "https://github.com/k4black/codebleu"
+homepage = "https://github.com/feedback-to-code/codeGLEU"
 
 [project.optional-dependencies]
 all = [
@@ -89,25 +89,25 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_unreachable = true
 allow_untyped_decorators = true
-exclude = ["codebleu/parser/tree-sitter", "codebleu/parser/tree-sitter/python", "tree_sitter"]
+exclude = ["codegleu/parser/tree-sitter", "codegleu/parser/tree-sitter/python", "tree_sitter"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
 testpaths = ["tests"]
 python_files = "test_*.py"
-addopts = "--cov=codebleu/ --cov-report term-missing"
+addopts = "--cov=codegleu/ --cov-report term-missing"
 
 [tool.coverage.run]
-omit = ["tests/*", "codebleu/parser/tree-sitter/*", "tree_sitter"]
+omit = ["tests/*", "codegleu/parser/tree-sitter/*", "tree_sitter"]
 
 
 [tool.isort]
 profile = "black"
-src_paths = ["codebleu", "tests"]
-known_first_party = ["codebleu", "tests"]
+src_paths = ["codegleu", "tests"]
+known_first_party = ["codegleu", "tests"]
 line_length = 120
 combine_as_imports = true
-skip = ["build", "dist", ".venv", ".eggs", ".mypy_cache", ".pytest_cache", ".git", ".tox", ".nox", "codebleu/parser", "tree_sitter"]
+skip = ["build", "dist", ".venv", ".eggs", ".mypy_cache", ".pytest_cache", ".git", ".tox", ".nox", "codegleu/parser", "tree_sitter"]
 
 [tool.black]
 line_length=120

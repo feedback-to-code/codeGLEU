@@ -6,7 +6,7 @@ import argparse
 from pathlib import Path
 from typing import List, Tuple
 
-from . import calc_codebleu
+from . import calc_codegleu
 
 PACKAGE_DIR = Path(__file__).parent
 
@@ -31,7 +31,7 @@ def main(
         references.append(ref_for_instance)
     assert len(references) == len(pre_references) * len(hypothesis)
 
-    code_bleu_score = calc_codebleu(
+    code_bleu_score = calc_codegleu(
         references,
         hypothesis,
         lang,
@@ -45,7 +45,7 @@ def main(
         f"dataflow_match: {code_bleu_score['dataflow_match_score']}",
     )
 
-    print("CodeBLEU score: ", code_bleu_score["codebleu"])
+    print("codegleu score: ", code_bleu_score["codegleu"])
 
 
 if __name__ == "__main__":

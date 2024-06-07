@@ -10,7 +10,7 @@ from .utils import AVAILABLE_LANGS, get_tree_sitter_language
 PACKAGE_DIR = Path(__file__).parent
 
 
-def calc_codebleu(
+def calc_codegleu(
     references: Union[List[str], List[List[str]]],
     predictions: List[str],
     lang: str,
@@ -18,7 +18,7 @@ def calc_codebleu(
     tokenizer: Optional[Callable] = None,
     keywords_dir: Path = PACKAGE_DIR / "keywords",
 ) -> Dict[str, float]:
-    """Calculate CodeBLEU score
+    """Calculate codegleu score
 
     Args:
         predictions: list of predictions
@@ -88,7 +88,7 @@ def calc_codebleu(
     )
 
     return {
-        "codebleu": code_bleu_score,
+        "codegleu": code_bleu_score,
         "ngram_match_score": ngram_match_score,
         "weighted_ngram_match_score": weighted_ngram_match_score,
         "syntax_match_score": syntax_match_score,
