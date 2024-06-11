@@ -1,2 +1,2 @@
-I like to eat cookies.
-My mother lives in a large house, that i also live in.
+public function foo ( x ) { return x }
+public function foo ( x ) { return x }

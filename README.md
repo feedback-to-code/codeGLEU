@@ -13,7 +13,7 @@ A similarly improved metric for the evaluation of code synthesis does not yet, h
 WIP
 
 ## Related Works / Citations
-Papineni et al, 2002: [https://aclanthology.org/P02-1040.pdf](https://aclanthology.org/P02-1040.pdf)    
+Papineni et al, 2002: [BLEU: a Method for Automatic Evaluation of Machine Translation](https://aclanthology.org/P02-1040.pdf)    
 Ren et al, 2020: [CodeBLEU: a Method for Automatic Evaluation of Code Synthesis](https://arxiv.org/pdf/2009.10297)    
 Napoles et al, 2015: [Ground Truth for Grammatical Error Correction Metrics](https://aclanthology.org/P15-2097.pdf)    
 Napoles et al, 2016: [GLEU Without Tuning](https://arxiv.org/pdf/1605.02592)    

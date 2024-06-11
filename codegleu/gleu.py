@@ -19,34 +19,53 @@
 # <https://github.com/alopez/en600.468/blob/master/reranker/>
 
 import math
+import scipy.stats
+import numpy as np
 from collections import Counter
-
 
 class GLEU:
     refs: list[list[list[str]]]
     reflens: list[list[int]]
 
-    def __init__(self, sources: list[str], references: list[list[str]], order: int = 4):
-        self.order = order
+    def __init__(
+        self, 
+        sources: list[str], 
+        references: list[list[str]], 
+        n_weights: list[float] = [0.25]*4, 
+        key_weights: dict[str, float] = {}
+    ):
+        """
+        :param sources: source sentences
+        :type sources: list(str)
+        :param references: reference sentences, row-wise
+        :type references: list(list(str))
+        :param n_weights: weights for unigrams, bigrams, trigrams and so on
+        :type n_weights: list(float)
+        :param key_weights: weights for keywords
+        :type key_weights: list(float)
+        """
+        self.order = len(n_weights)
+
+        total = sum(n_weights)
+        n_weights = [weight/total for weight in n_weights if weight != 0]
+        self.n_weights = n_weights
+
+        self.default_key_weight = key_weights.pop("default", 1)
+        self.key_weights = {key.removeprefix("key_"): value for key, value in key_weights.items()}
+
+        self.refs = [[] for _ in range(len(sources))]
+        self.reflens = [[] for _ in range(len(sources))]
         self.load_sources(sources)
         self.load_references(references)
 
-    def load_hypothesis_sentence(self, hypothesis):
-        self.hypothesislen = len(hypothesis)
-        self.this_hypothesis_ngrams = [self.get_ngram_counts(hypothesis, n) for n in range(1, self.order + 1)]
-
     def load_sources(self, sources):
         self.all_source_ngrams = [
-            [self.get_ngram_counts(line.split(), n) for n in range(1, self.order + 1)] for line in sources
+            [self.get_ngram_counts(line, n) for n in range(1, self.order + 1)] for line in sources
         ]
 
     def load_references(self, references):
-        self.refs = [[] for _ in range(len(self.all_source_ngrams))]
-        self.reflens = [[] for _ in range(len(self.all_source_ngrams))]
-        for reference in references:
-            for i, line in enumerate(reference):
-                self.refs[i].append(line.split())
-                self.reflens[i].append(len(line.split()))
+        self.refs = references
+        self.reflens = [[len(ref) for ref in refs] for refs in references]
 
         # count number of references each n-gram appears in
         self.all_r_ngrams_freq = [Counter() for i in range(self.order)]
@@ -87,20 +106,32 @@ class GLEU:
     # (c, r, numerator1, denominator1, ... numerator4, denominator4)
     # Summing the columns across calls to this function on an entire corpus
     # will produce a vector of statistics that can be used to compute GLEU
-    def gleu_stats(self, i, r_ind=None):
+    def gleu_stats(self, h, i, r_ind=None):
+        
+        self.hypothesislen = len(h)
+        self.this_hypothesis_ngrams = [self.get_ngram_counts(h, n) for n in range(1, self.order + 1)]
         yield self.hypothesislen
         yield self.reflens[i][r_ind]
 
-        for n in range(1, self.order + 1):
-            hypothesis_ngrams = self.this_hypothesis_ngrams[n - 1]
-            source_ngrams = self.all_source_ngrams[i][n - 1]
-            reference_ngrams = self.get_ngram_counts(self.refs[i][r_ind], n)
+        for n in range(self.order):
+            hypothesis_ngrams = self.this_hypothesis_ngrams[n]
+            source_ngrams = self.all_source_ngrams[i][n]
+            reference_ngrams = self.get_ngram_counts(self.refs[i][r_ind], n + 1)
 
             source_ngram_diff = self.get_ngram_diff(source_ngrams, reference_ngrams)
 
-            yield max([sum((hypothesis_ngrams & reference_ngrams).values()) - sum((hypothesis_ngrams & source_ngram_diff).values()), 0])
+            def weighted_value(ngram, count):
+                if ngram[0] in self.key_weights.keys():
+                    return count * self.key_weights[ngram[0]]
+                return count * self.default_key_weight
 
-            yield max([self.hypothesislen + 1 - n, 0])
+            weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
+            correct_ngrams = weighted_count(hypothesis_ngrams & reference_ngrams)
+            lacking_ngrams = weighted_count(hypothesis_ngrams & source_ngram_diff)
+            yield max([correct_ngrams - lacking_ngrams, 0])
+
+            ngram_count = weighted_count(hypothesis_ngrams)
+            yield max([ngram_count, 0])
 
     # Compute GLEU from collected statistics obtained by call(s) to gleu_stats
     def gleu(self, stats, smooth=False):
@@ -110,5 +141,55 @@ class GLEU:
         if len([stat for stat in stats if stat == 0]) > 0:
             return 0
         (c, r) = stats[:2]
-        log_gleu_prec = sum([math.log(float(x) / y) for x, y in zip(stats[2::2], stats[3::2])]) / 4
+        log_gleu_prec = sum([self.n_weights[i] * math.log(float(x) / y) for i, (x, y) in enumerate(zip(stats[2::2], stats[3::2]))])
         return math.exp(min([0, 1 - float(r) / c]) + log_gleu_prec)
+
+
+def get_gleu_stats(scores):
+    mean = np.mean(scores)
+    std = np.std(scores) if len(scores) > 1 else 0
+    ci = scipy.stats.norm.interval(0.95, loc=mean, scale=std) if len(scores) > 1 else (0,0)
+    return [mean, std, ci[0], ci[1]]
+
+
+def corpus_gleu(
+    source: list[str], 
+    references: list[list[str]], 
+    hypothesis: list[str], 
+    n_weights: list[float] = [0.25]*4,
+    key_weights: dict[str, float] = {},
+    debug: bool = False,
+    ):
+    n = len(n_weights)
+    gleu_calculator = GLEU(source, references, n_weights, key_weights)
+
+    def dbprint(*args, **kwargs):
+        if debug:
+            print(*args, **kwargs)
+        
+
+    dbprint("===== Sentence-level scores =====")
+    dbprint("SID Mean Stdev 95%CI GLEU")
+
+    refnum = len(references[0])
+    iter_stats = [[0,0]*(n+1)] * refnum
+    for i, h in enumerate(hypothesis):
+        stats_by_ref = [[]] * refnum
+        for ref in range(refnum):
+            stats_by_ref[ref] = list(gleu_calculator.gleu_stats(h, i, r_ind=ref))
+            dbprint(stats_by_ref[ref])
+            iter_stats[ref] = [sum(scores) for scores in zip(iter_stats[ref], stats_by_ref[ref])]
+
+        # sentence-level GLEU is the mean GLEU of the hypothesis
+        # compared to each reference
+        dbprint(i, h)
+        stats = get_gleu_stats([gleu_calculator.gleu(stats, smooth=True) for stats in stats_by_ref])
+        dbprint(" ".join([str(stat) for stat in stats]))
+
+    stats = get_gleu_stats([gleu_calculator.gleu(stats) for stats in iter_stats])
+
+    dbprint("\n==== Overall score =====")
+    dbprint("Mean Stdev 95%CI GLEU")
+    dbprint(" ".join([str(stat) for stat in stats]))
+
+    return stats[0]
