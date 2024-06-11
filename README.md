@@ -8,7 +8,7 @@ In the context of CodeBLEU and code-modification, this means models are often re
 
 This deficit was successfully resolved for textual tasks with GLEU (Napoles et al, 2015), which introduces a penalty for n-grams that should have been modified but were not, bringing the metric into alignment with human evaluations even for complex grammatical error correction tasks. 
 
-A similarly improved metric for the evaluation of code synthesis does not yet, however, exist. As such, i am introducing the CodeGLEU metric, which aims to extend CodeBLEU in the same manner that GLEU extends BLEU in.
+A similarly improved metric for the evaluation of code synthesis does not yet, however, exist. As such, i am introducing the CodeGLEU metric, which aims to extend CodeBLEU in the same way that GLEU extends BLEU.
 
 WIP
 
