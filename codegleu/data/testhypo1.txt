@@ -1,2 +1,2 @@
-private function foo ( x ) { return x }
+private function increment ( x ) { x=x+1; return x }
 public function foo ( y ) { return y }

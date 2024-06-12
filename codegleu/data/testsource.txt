@@ -1,2 +1,2 @@
-public function foo ( y ) { return y }
+public function increment ( x ) { }
 public function foo ( y ) { return y }
