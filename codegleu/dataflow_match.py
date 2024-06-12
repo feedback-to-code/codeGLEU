@@ -1,7 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 import logging
-
+from collections import Counter
 from tree_sitter import Parser
 
 from .parser import (
@@ -14,7 +14,7 @@ from .parser import (
     DFG_ruby,
     DFG_rust,
     index_to_code_token,
-    remove_comments_and_docstrings,
+    try_remove_comments_and_docstrings,
     tree_to_token_index,
 )
 from .utils import get_tree_sitter_language
@@ -33,12 +33,20 @@ dfg_function = {
 }
 
 
-def calc_dataflow_match(source: str, references: list[str], candidate: str, lang: str, langso_so_file):
-    return corpus_dataflow_match([source], [references], [candidate], lang, langso_so_file)
+def counter_diff(a, b):
+    diff = Counter(a)
+    for k in set(a) & set(b):
+        del diff[k]
+    return diff
 
 
+def calc_dataflow_match(source: str, references: list[str], hypothesis: str, lang: str, langso_so_file):
+    return corpus_dataflow_match([source], [references], [hypothesis], lang, langso_so_file)
+
+
+# very similar to syntax match, might merge later
 def corpus_dataflow_match(
-    sources: list[str], references: list[list[str]], candidates: list[str], lang: str, tree_sitter_language=None
+    sources: list[str], references: list[list[str]], hypotheses: list[str], lang: str, tree_sitter_language=None
 ) -> float:
     if not tree_sitter_language:
         tree_sitter_language = get_tree_sitter_language(lang)
@@ -49,31 +57,29 @@ def corpus_dataflow_match(
     match_count = 0
     total_count = 0
 
-    for i in range(len(candidates)):
-        references_sample = references[i]
-        candidate = candidates[i]
+    for source, references_sample, hypothesis in zip(sources, references, hypotheses):
+        source = try_remove_comments_and_docstrings(source, lang)
+        source_dfg = get_data_flow(source, parser)
+        source_dfg_norm = Counter(map(str, normalize_dataflow(source_dfg)))
+
+        hypothesis = try_remove_comments_and_docstrings(hypothesis, lang)
+        hypothesis_dfg = get_data_flow(hypothesis, parser)
+        hypothesis_dfg_norm = Counter(map(str, normalize_dataflow(hypothesis_dfg)))
+
         for reference in references_sample:
-            try:
-                candidate = remove_comments_and_docstrings(candidate, lang)
-            except Exception:
-                pass
-            try:
-                reference = remove_comments_and_docstrings(reference, lang)
-            except Exception:
-                pass
 
-            cand_dfg = get_data_flow(candidate, parser)
-            ref_dfg = get_data_flow(reference, parser)
+            reference = try_remove_comments_and_docstrings(reference, lang)
+            reference_dfg = get_data_flow(reference, parser)
+            reference_dfg_norm = Counter(map(str, normalize_dataflow(reference_dfg)))
 
-            normalized_cand_dfg = normalize_dataflow(cand_dfg)
-            normalized_ref_dfg = normalize_dataflow(ref_dfg)
+            source_dfg_diff = counter_diff(source_dfg_norm, reference_dfg_norm)
+            
+            matching_dataflow = (hypothesis_dfg_norm & reference_dfg_norm).total()
+            penalty_dataflow = (hypothesis_dfg_norm & source_dfg_diff).total()
+            score = matching_dataflow - penalty_dataflow
 
-            if len(normalized_ref_dfg) > 0:
-                total_count += len(normalized_ref_dfg)
-                for dataflow in normalized_ref_dfg:
-                    if dataflow in normalized_cand_dfg:
-                        match_count += 1
-                        normalized_cand_dfg.remove(dataflow)
+            match_count += max(score, 0)
+            total_count += reference_dfg_norm.total()
     if total_count == 0:
         logging.warning(
             "WARNING: There is no reference data-flows extracted from the whole corpus, "
@@ -131,25 +137,6 @@ def get_data_flow(code, parser):
         DFG.append(dic[d])
     dfg = DFG
     return dfg
-
-
-def normalize_dataflow_item(dataflow_item):
-    var_name = dataflow_item[0]
-    dataflow_item[1]
-    relationship = dataflow_item[2]
-    par_vars_name_list = dataflow_item[3]
-    dataflow_item[4]
-
-    var_names = list(set(par_vars_name_list + [var_name]))
-    norm_names = {}
-    for i in range(len(var_names)):
-        norm_names[var_names[i]] = "var_" + str(i)
-
-    norm_var_name = norm_names[var_name]
-    relationship = dataflow_item[2]
-    norm_par_vars_name_list = [norm_names[x] for x in par_vars_name_list]
-
-    return (norm_var_name, relationship, norm_par_vars_name_list)
 
 
 def normalize_dataflow(dataflow):
