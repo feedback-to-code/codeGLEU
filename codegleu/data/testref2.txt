@@ -1,2 +1,3 @@
-public function increment ( int x ) { x+=1; return x; }
-public function foo ( int x ) { return x; }
+public function increment ( int x ) { x += 1 ; return x ; }
+public function increment ( int x ) { x += 1 ; return x ; }
+public function to_float ( int f ) { return (float) f ; }
