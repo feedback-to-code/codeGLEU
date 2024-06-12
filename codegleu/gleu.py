@@ -23,16 +23,17 @@ import scipy.stats
 import numpy as np
 from collections import Counter
 
+
 class GLEU:
     refs: list[list[list[str]]]
     reflens: list[list[int]]
 
     def __init__(
-        self, 
-        sources: list[str], 
-        references: list[list[str]], 
-        n_weights: list[float] = [0.25]*4, 
-        key_weights: dict[str, float] = {}
+        self,
+        sources: list[str],
+        references: list[list[str]],
+        n_weights: list[float] = [0.25] * 4,
+        key_weights: dict[str, float] = {},
     ):
         """
         :param sources: source sentences
@@ -47,7 +48,7 @@ class GLEU:
         self.order = len(n_weights)
 
         total = sum(n_weights)
-        n_weights = [weight/total for weight in n_weights if weight != 0]
+        n_weights = [weight / total for weight in n_weights if weight != 0]
         self.n_weights = n_weights
 
         self.default_key_weight = key_weights.pop("default", 1)
@@ -107,7 +108,7 @@ class GLEU:
     # Summing the columns across calls to this function on an entire corpus
     # will produce a vector of statistics that can be used to compute GLEU
     def gleu_stats(self, h, i, r_ind=None):
-        
+
         self.hypothesislen = len(h)
         self.this_hypothesis_ngrams = [self.get_ngram_counts(h, n) for n in range(1, self.order + 1)]
         yield self.hypothesislen
@@ -141,38 +142,39 @@ class GLEU:
         if len([stat for stat in stats if stat == 0]) > 0:
             return 0
         (c, r) = stats[:2]
-        log_gleu_prec = sum([self.n_weights[i] * math.log(float(x) / y) for i, (x, y) in enumerate(zip(stats[2::2], stats[3::2]))])
+        log_gleu_prec = sum(
+            [self.n_weights[i] * math.log(float(x) / y) for i, (x, y) in enumerate(zip(stats[2::2], stats[3::2]))]
+        )
         return math.exp(min([0, 1 - float(r) / c]) + log_gleu_prec)
 
 
 def get_gleu_stats(scores):
     mean = np.mean(scores)
     std = np.std(scores) if len(scores) > 1 else 0
-    ci = scipy.stats.norm.interval(0.95, loc=mean, scale=std) if std > 0 else (0,0)
+    ci = scipy.stats.norm.interval(0.95, loc=mean, scale=std) if std > 0 else (0, 0)
     return [mean, std, ci[0], ci[1]]
 
 
 def corpus_gleu(
-    source: list[str], 
-    references: list[list[str]], 
-    hypothesis: list[str], 
-    n_weights: list[float] = [0.25]*4,
+    source: list[str],
+    references: list[list[str]],
+    hypothesis: list[str],
+    n_weights: list[float] = [0.25] * 4,
     key_weights: dict[str, float] = {},
     debug: bool = False,
-    ) -> float:
+) -> float:
     n = len(n_weights)
     gleu_calculator = GLEU(source, references, n_weights, key_weights)
 
     def dbprint(*args, **kwargs):
         if debug:
             print(*args, **kwargs)
-        
 
     dbprint("===== Sentence-level scores =====")
     dbprint("SID Mean Stdev 95%CI GLEU")
 
     refnum = len(references[0])
-    iter_stats = [[0,0]*(n+1)] * refnum
+    iter_stats = [[0, 0] * (n + 1)] * refnum
     for i, h in enumerate(hypothesis):
         stats_by_ref = [[]] * refnum
         for ref in range(refnum):

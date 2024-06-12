@@ -12,6 +12,7 @@ def try_remove_comments_and_docstrings(source: str, lang: str) -> str:
     except Exception:
         return source
 
+
 def remove_comments_and_docstrings(source: str, lang: str) -> str:
     if lang in ["python"]:
         """

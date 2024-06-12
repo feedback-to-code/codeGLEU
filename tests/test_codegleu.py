@@ -10,9 +10,24 @@ from codegleu.codegleu import AVAILABLE_LANGS, calc_codegleu
 @pytest.mark.parametrize(
     ["sources", "predictions", "references", "codegleu"],
     [
-        (["def foo ( x ) :\n    return x"], ["some rannnndom words in length more than 3"], ["def test ( ) :\n pass"], 0.25),  # cause data_flow=1
-        (["def foo ( x ) :\n    return x"], ["def bar ( y , x ) :\n    a = x * x\n    return a"], ["def foo ( x ) :\n    return x"], 0.3),
-        (["def foo ( x ) :\n    return x"], ["def foo ( x ) :\n    return x * x"], ["def bar ( x ) :\n    return x"], 0.37),
+        (
+            ["def foo ( x ) :\n    return x"],
+            ["some rannnndom words in length more than 3"],
+            ["def test ( ) :\n pass"],
+            0.25,
+        ),  # cause data_flow=1
+        (
+            ["def foo ( x ) :\n    return x"],
+            ["def bar ( y , x ) :\n    a = x * x\n    return a"],
+            ["def foo ( x ) :\n    return x"],
+            0.3,
+        ),
+        (
+            ["def foo ( x ) :\n    return x"],
+            ["def foo ( x ) :\n    return x * x"],
+            ["def bar ( x ) :\n    return x"],
+            0.37,
+        ),
         (["def foo ( x ) :\n    return x"], ["def bar ( x ) :\n    return x"], ["def foo ( x ) :\n    return x"], 0.80),
         (["def foo ( y ) :\n    return y"], ["def foo ( x ) :\n    return x"], ["def foo ( x ) :\n    return x"], 1.0),
     ],
@@ -32,19 +47,61 @@ def test_exact_match_works_for_all_langs(lang: str) -> None:
 @pytest.mark.parametrize(
     ["lang", "sources", "predictions", "references"],
     [
-        ("python",      ["def foo ( x ) :\n    return x"],          ["def foo ( x ) :\n    return x"],          ["def bar ( y ) :\n    return y"]),
-        ("java",        ["public function foo ( x ) { return x }"], ["public function foo ( x ) { return x }"], ["public function bar ( y ) {\n   return y\n}"]),
-        ("javascript",  ["function foo ( x ) { return x }"],        ["function foo ( x ) { return x }"],        ["function bar ( y ) {\n   return y\n}"]),
-        ("c",           ["int foo ( int x ) { return x }"],         ["int foo ( int x ) { return x }"],         ["int bar ( int y ) {\n   return y\n}"]),
-        ("c_sharp",     ["public int foo ( int x ) { return x }"],  ["public int foo ( int x ) { return x }"],  ["public int bar ( int y ) {\n   return y\n}"]),
-        ("cpp",         ["int foo ( int x ) { return x }"],         ["int foo ( int x ) { return x }"],         ["int bar ( int y ) {\n   return y\n}"]),
-        ("php",         ["function foo ( x ) { return x }"],        ["function foo ( x ) { return x }"],        ["function bar ( y ) {\n   return y\n}"]),
-        ("go",          ["func foo ( x ) { return x }"],            ["func foo ( x ) { return x }"],            ["func bar ( y ) {\n   return y\n}"]),
-        ("ruby",        ["def foo ( x ) :\n    return x"],          ["def foo ( x ) :\n    return x"],          ["def bar ( y ) :\n    return y"]),
-        ("rust",        ["fn foo ( x ) -> i32 { x }"],              ["fn foo ( x ) -> i32 { x }"],              ["fn bar ( y ) -> i32 { y }"]),
+        (
+            "python",
+            ["def foo ( x ) :\n    return x"],
+            ["def foo ( x ) :\n    return x"],
+            ["def bar ( y ) :\n    return y"],
+        ),
+        (
+            "java",
+            ["public function foo ( x ) { return x }"],
+            ["public function foo ( x ) { return x }"],
+            ["public function bar ( y ) {\n   return y\n}"],
+        ),
+        (
+            "javascript",
+            ["function foo ( x ) { return x }"],
+            ["function foo ( x ) { return x }"],
+            ["function bar ( y ) {\n   return y\n}"],
+        ),
+        (
+            "c",
+            ["int foo ( int x ) { return x }"],
+            ["int foo ( int x ) { return x }"],
+            ["int bar ( int y ) {\n   return y\n}"],
+        ),
+        (
+            "c_sharp",
+            ["public int foo ( int x ) { return x }"],
+            ["public int foo ( int x ) { return x }"],
+            ["public int bar ( int y ) {\n   return y\n}"],
+        ),
+        (
+            "cpp",
+            ["int foo ( int x ) { return x }"],
+            ["int foo ( int x ) { return x }"],
+            ["int bar ( int y ) {\n   return y\n}"],
+        ),
+        (
+            "php",
+            ["function foo ( x ) { return x }"],
+            ["function foo ( x ) { return x }"],
+            ["function bar ( y ) {\n   return y\n}"],
+        ),
+        ("go", ["func foo ( x ) { return x }"], ["func foo ( x ) { return x }"], ["func bar ( y ) {\n   return y\n}"]),
+        (
+            "ruby",
+            ["def foo ( x ) :\n    return x"],
+            ["def foo ( x ) :\n    return x"],
+            ["def bar ( y ) :\n    return y"],
+        ),
+        ("rust", ["fn foo ( x ) -> i32 { x }"], ["fn foo ( x ) -> i32 { x }"], ["fn bar ( y ) -> i32 { y }"]),
     ],
 )
-def test_simple_cases_work_for_all_langs(lang: str, sources: list[Any], predictions: List[Any], references: List[Any]) -> None:
+def test_simple_cases_work_for_all_langs(
+    lang: str, sources: list[Any], predictions: List[Any], references: List[Any]
+) -> None:
     result = calc_codegleu(sources, references, predictions, lang)
     logging.debug(result)
     assert result["codegleu"] == pytest.approx(0.55, 0.1)
@@ -58,6 +115,7 @@ def test_error_when_lang_not_supported() -> None:
 def test_error_when_input_length_mismatch() -> None:
     with pytest.raises(AssertionError):
         calc_codegleu(["def foo : pass"], ["def foo : pass"], ["def bar : pass", "def buz : pass"], "python")
+
 
 @pytest.mark.parametrize(
     ["sources", "predictions", "references", "codegleu"],

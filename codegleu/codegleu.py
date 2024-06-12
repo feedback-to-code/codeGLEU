@@ -48,6 +48,7 @@ def calc_codegleu(
 
     # calculate ngram match (BLEU)
     if tokenizer is None:
+
         def tokenizer(s: str) -> list[str]:
             return s.split()
 
@@ -62,7 +63,9 @@ def calc_codegleu(
         keywords = [x.strip() for x in f.readlines()]
 
     key_weights = {f"key_{key}": 1 for key in keywords} | {"default": 0.2}
-    weighted_ngram_match_score = gleu.corpus_gleu(tokenized_srcs, tokenized_refs, tokenized_hyps, key_weights=key_weights)
+    weighted_ngram_match_score = gleu.corpus_gleu(
+        tokenized_srcs, tokenized_refs, tokenized_hyps, key_weights=key_weights
+    )
 
     # calculate syntax match
     syntax_match_score = syntax_match.corpus_syntax_match(

@@ -31,7 +31,9 @@ def calc_syntax_match(source: str, references: list[str], candidate: str, lang: 
     return corpus_syntax_match([source], [references], [candidate], lang)
 
 
-def corpus_syntax_match(sources: list[str], references: list[list[str]], candidates: list[str], lang: str, tree_sitter_language=None) -> float:
+def corpus_syntax_match(
+    sources: list[str], references: list[list[str]], candidates: list[str], lang: str, tree_sitter_language=None
+) -> float:
     if not tree_sitter_language:
         tree_sitter_language = get_tree_sitter_language(lang)
 
@@ -49,7 +51,7 @@ def corpus_syntax_match(sources: list[str], references: list[list[str]], candida
         source_tree = parser.parse(bytes(source, "utf8")).root_node
 
         for reference in references_sample:
-            
+
             reference = try_remove_comments_and_docstrings(reference, lang)
             reference_tree = parser.parse(bytes(reference, "utf8")).root_node
 
