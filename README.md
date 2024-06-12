@@ -10,7 +10,14 @@ This deficit was successfully resolved for textual tasks with GLEU (Napoles et a
 
 A similarly improved metric for the evaluation of code synthesis does not yet, however, exist. As such, i am introducing the CodeGLEU metric, which aims to extend CodeBLEU in the same way that GLEU extends BLEU.
 
-WIP
+## TODO
+- [X] Rewrite ngram_match_score to use GLEU formula    
+- [X] Rewrite weighted ngram_match_score to use GLEU formula    
+- [X] Rewrite syntax_match_score to use GLEU formula    
+- [X] Rewrite dataflow_match_score to use GLEU formula    
+- [ ] Write Tests    
+- [ ] Evaluate on suitable dataset    
+- [ ] Tweak Metric / Weights    
 
 ## Related Works / Citations
 Papineni et al, 2002: [BLEU: a Method for Automatic Evaluation of Machine Translation](https://aclanthology.org/P02-1040.pdf)    
