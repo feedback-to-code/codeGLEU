@@ -33,7 +33,7 @@ class GLEU:
         sources: list[str],
         references: list[list[str]],
         n_weights: list[float] = [0.25] * 4,
-        key_weights: dict[str, float] = {},
+        key_weights: dict[str, float] = {"default": 1},
     ):
         """
         :param sources: source sentences
@@ -51,9 +51,12 @@ class GLEU:
         n_weights = [weight / total for weight in n_weights if weight != 0]
         self.n_weights = n_weights
 
-        self.default_key_weight = key_weights.pop("default", 1)
-        self.key_weights = {key.removeprefix("key_"): value for key, value in key_weights.items()}
-
+        if key_weights:
+            self.default_key_weight = key_weights.pop("default", 1)
+            self.key_weights = {key.removeprefix("key_"): value for key, value in key_weights.items()}
+        else:
+            self.default_key_weight = 1
+            self.key_weights = {}
         self.refs = [[] for _ in range(len(sources))]
         self.reflens = [[] for _ in range(len(sources))]
         self.load_sources(sources)
@@ -93,7 +96,7 @@ class GLEU:
         return Counter([tuple(sentence[i : i + n]) for i in range(len(sentence) + 1 - n)])
 
     # returns ngrams in a but not in b
-    def get_ngram_diff(self, a, b):
+    def counter_diff(self, a, b):
         diff = Counter(a)
         for k in set(a) & set(b):
             del diff[k]
@@ -119,7 +122,7 @@ class GLEU:
             source_ngrams = self.all_source_ngrams[i][n]
             reference_ngrams = self.get_ngram_counts(self.refs[i][r_ind], n + 1)
 
-            source_ngram_diff = self.get_ngram_diff(source_ngrams, reference_ngrams)
+            source_ngram_diff = self.counter_diff(source_ngrams, reference_ngrams)
 
             def weighted_value(ngram, count):
                 if ngram[0] in self.key_weights.keys():
@@ -128,8 +131,8 @@ class GLEU:
 
             weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
             correct_ngrams = weighted_count(hypothesis_ngrams & reference_ngrams)
-            lacking_ngrams = weighted_count(hypothesis_ngrams & source_ngram_diff)
-            yield max([correct_ngrams - lacking_ngrams, 0])
+            penalty_ngrams = weighted_count(hypothesis_ngrams & source_ngram_diff)
+            yield max([correct_ngrams - penalty_ngrams, 0])
 
             ngram_count = weighted_count(hypothesis_ngrams)
             yield max([ngram_count, 0])
