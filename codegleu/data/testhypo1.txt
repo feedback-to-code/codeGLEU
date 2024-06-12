@@ -1,2 +1,2 @@
-private function increment ( x ) { x=x+1; return x }
-public function foo ( y ) { return y }
+private function increment ( int x ) { x=x+1; return x; }
+public function foo ( int y ) { return y; }
