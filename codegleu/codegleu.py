@@ -4,7 +4,7 @@
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-from . import gleu, dataflow_match, syntax_match, weighted_ngram_match
+from . import gleu, dataflow_match, syntax_match
 from .utils import AVAILABLE_LANGS, get_tree_sitter_language
 
 PACKAGE_DIR = Path(__file__).parent

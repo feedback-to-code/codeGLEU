@@ -68,7 +68,7 @@ def corpus_syntax_match(
 
     parser = Parser()
     parser.language = tree_sitter_language
-    parser = [parser, dfg_function[lang]]
+
     match_count = 0
     total_count = 0
 
