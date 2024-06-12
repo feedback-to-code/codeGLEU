@@ -34,7 +34,7 @@ n_weights = (1 / NUMGRAM,) * NUMGRAM
 
 runs: list[dict] = []
 runs.append({"title": "total"} | calc_codegleu(sources, references, hypotheses, "java", weights=n_weights))
-titles = ["sensible", "sensible 2", "repeat, wrong syntax", "repeat, wrong ngrams"]
+titles = ["exactmatch", "sensible", "sensible 2", "repeat, wrong syntax", "repeat, wrong ngrams"]
 for index, (source, reference, hypothesis) in enumerate(zip(sources, references, hypotheses)):
     title = {"title": titles[index] if index < len(titles) else f"row {index+1}"}
     runs.append(title | calc_codegleu([source], [reference], [hypothesis], "java", weights=n_weights))
