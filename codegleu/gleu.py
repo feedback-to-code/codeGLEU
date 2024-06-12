@@ -148,7 +148,7 @@ class GLEU:
 def get_gleu_stats(scores):
     mean = np.mean(scores)
     std = np.std(scores) if len(scores) > 1 else 0
-    ci = scipy.stats.norm.interval(0.95, loc=mean, scale=std) if len(scores) > 1 else (0,0)
+    ci = scipy.stats.norm.interval(0.95, loc=mean, scale=std) if std > 0 else (0,0)
     return [mean, std, ci[0], ci[1]]
 
 
