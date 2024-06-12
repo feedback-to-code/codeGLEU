@@ -2,6 +2,7 @@
 # Licensed under the MIT license.
 import logging
 from collections import Counter
+
 from tree_sitter import Parser
 
 from .parser import (
@@ -13,9 +14,7 @@ from .parser import (
     DFG_python,
     DFG_ruby,
     DFG_rust,
-    index_to_code_token,
     try_remove_comments_and_docstrings,
-    tree_to_token_index,
 )
 from .utils import get_tree_sitter_language
 

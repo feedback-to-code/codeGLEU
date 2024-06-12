@@ -2,9 +2,9 @@
 # Copyright (c) 2023 Konstantin Chernyshev.
 # Licensed under the MIT license.
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, List, Optional, Union
 
-from . import gleu, dataflow_match, syntax_match
+from . import dataflow_match, gleu, syntax_match
 from .utils import AVAILABLE_LANGS, get_tree_sitter_language
 
 PACKAGE_DIR = Path(__file__).parent
@@ -15,7 +15,7 @@ def calc_codegleu(
     references: Union[List[str], List[List[str]]],
     predictions: List[str],
     lang: str,
-    weights: Tuple[float, float, float, float] = (0.25, 0.25, 0.25, 0.25),
+    weights: tuple[float, ...] = (0.25,) * 4,
     tokenizer: Optional[Callable[[str], list[str]]] = None,
     keywords_dir: Path = PACKAGE_DIR / "keywords",
 ) -> Dict[str, float]:

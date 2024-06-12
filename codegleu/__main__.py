@@ -31,7 +31,9 @@ def main(
         for j in range(len(pre_references)):
             ref_for_instance.append(pre_references[j][i])
         references.append(ref_for_instance)
-    assert len(references) == len(pre_references) * len(hypotheses)
+    assert len(references) * len(references[0]) == len(pre_references) * len(
+        hypotheses
+    ), "References must be converted from column-wise to row-wise"
 
     code_gleu_score = calc_codegleu(
         sources,
@@ -56,13 +58,14 @@ if __name__ == "__main__":
 
     parser.add_argument("--refs", type=str, nargs="+", required=True, help="reference files")
     parser.add_argument("--hyp", type=str, required=True, help="hypothesis file")
+    parser.add_argument("--src", type=str, required=True, help="source file")
     parser.add_argument(
         "--lang",
         type=str,
         required=True,
         choices=["java", "js", "c_sharp", "php", "go", "python", "ruby", "rust"],
     )
-    parser.add_argument("--params", type=str, default="0.25,0.25,0.25,0.25", help="alpha, beta and gamma")
+    parser.add_argument("--params", type=str, default="0.25,0.25,0.25,0.25", help="alpha, beta, gamme and delta")
 
     args = parser.parse_args()
 
@@ -70,6 +73,7 @@ if __name__ == "__main__":
     alpha, beta, gamma, theta = [float(x) for x in args.params.split(",")]
 
     main(
+        args.src,
         args.refs,
         args.hyp,
         args.lang,

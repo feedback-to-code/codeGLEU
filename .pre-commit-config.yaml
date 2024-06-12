@@ -1,0 +1,33 @@
+repos:
+  # align isort and black https://github.com/PyCQA/isort/issues/1518
+  # sorts imports
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        args: ["--profile", "black"]
+  # formats
+  - repo: https://github.com/psf/black
+    rev: 22.10.0
+    hooks:
+      - id: black
+        exclude: codegleu/legacy code, codegleu/data
+  # types
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.7.1
+    hooks:
+      - id: mypy
+        # https://stackoverflow.com/questions/73603475/conda-and-pre-commit-error-library-stubs-not-installed-for-requests-or-inco
+        additional_dependencies: ['types-requests', 'types-retry']
+        ignore_missing_imports: true
+        no_incremental: true
+        disallow_untyped_defs: true
+        disallow_incomplete_defs: true
+        disallow_subclassing_any: false
+        disallow_any_generics: true
+        no_implicit_optional: true
+        warn_redundant_casts: true
+        warn_unused_ignores: true
+        warn_unreachable: true
+        allow_untyped_decorators: true
+        exclude: "codegleu/parser/tree-sitter, codegleu/parser/tree-sitter/python, tree_sitter"

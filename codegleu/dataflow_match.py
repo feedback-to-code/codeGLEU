@@ -2,6 +2,7 @@
 # Licensed under the MIT license.
 import logging
 from collections import Counter
+
 from tree_sitter import Parser
 
 from .parser import (
@@ -14,8 +15,8 @@ from .parser import (
     DFG_ruby,
     DFG_rust,
     index_to_code_token,
-    try_remove_comments_and_docstrings,
     tree_to_token_index,
+    try_remove_comments_and_docstrings,
 )
 from .utils import get_tree_sitter_language
 
@@ -53,7 +54,7 @@ def corpus_dataflow_match(
 
     parser = Parser()
     parser.language = tree_sitter_language
-    parser = [parser, dfg_function[lang]]
+    parser = [parser, dfg_function[lang]]  # type: ignore[assignment]
     match_count = 0
     total_count = 0
 
@@ -73,7 +74,7 @@ def corpus_dataflow_match(
             reference_dfg_norm = Counter(map(str, normalize_dataflow(reference_dfg)))
 
             source_dfg_diff = counter_diff(source_dfg_norm, reference_dfg_norm)
-            
+
             matching_dataflow = (hypothesis_dfg_norm & reference_dfg_norm).total()
             penalty_dataflow = (hypothesis_dfg_norm & source_dfg_diff).total()
             score = matching_dataflow - penalty_dataflow

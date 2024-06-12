@@ -19,9 +19,10 @@
 # <https://github.com/alopez/en600.468/blob/master/reranker/>
 
 import math
-import scipy.stats
-import numpy as np
 from collections import Counter
+
+import numpy as np
+import scipy.stats
 
 
 class GLEU:
@@ -30,9 +31,9 @@ class GLEU:
 
     def __init__(
         self,
-        sources: list[str],
-        references: list[list[str]],
-        n_weights: list[float] = [0.25] * 4,
+        sources: list[list[str]],
+        references: list[list[list[str]]],
+        n_weights: tuple[float, ...] = (0.25,) * 4,
         key_weights: dict[str, float] = {"default": 1},
     ):
         """
@@ -48,7 +49,7 @@ class GLEU:
         self.order = len(n_weights)
 
         total = sum(n_weights)
-        n_weights = [weight / total for weight in n_weights if weight != 0]
+        n_weights = tuple(weight / total for weight in n_weights if weight != 0)
         self.n_weights = n_weights
 
         if key_weights:
@@ -159,10 +160,10 @@ def get_gleu_stats(scores):
 
 
 def corpus_gleu(
-    source: list[str],
-    references: list[list[str]],
-    hypothesis: list[str],
-    n_weights: list[float] = [0.25] * 4,
+    source: list[list[str]],
+    references: list[list[list[str]]],
+    hypothesis: list[list[str]],
+    n_weights: tuple[float, ...] = (0.25,) * 4,
     key_weights: dict[str, float] = {},
     debug: bool = False,
 ) -> float:
@@ -179,7 +180,7 @@ def corpus_gleu(
     refnum = len(references[0])
     iter_stats = [[0, 0] * (n + 1)] * refnum
     for i, h in enumerate(hypothesis):
-        stats_by_ref = [[]] * refnum
+        stats_by_ref: list[list[int]] = [[]] * refnum
         for ref in range(refnum):
             stats_by_ref[ref] = list(gleu_calculator.gleu_stats(h, i, r_ind=ref))
             dbprint(stats_by_ref[ref])
