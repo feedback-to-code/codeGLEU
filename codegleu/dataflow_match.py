@@ -33,11 +33,11 @@ dfg_function = {
 }
 
 
-def calc_dataflow_match(references: list[str], candidate: str, lang: str, langso_so_file):
-    return corpus_dataflow_match([references], [candidate], lang, langso_so_file)
+def calc_dataflow_match(source: str, references: list[str], candidate: str, lang: str, langso_so_file):
+    return corpus_dataflow_match([source], [references], [candidate], lang, langso_so_file)
 
 
-def corpus_dataflow_match(references: list[list[str]], candidates: list[str], lang: str, tree_sitter_language=None) -> float:
+def corpus_dataflow_match(sources: list[str], references: list[list[str]], candidates: list[str], lang: str, tree_sitter_language=None) -> float:
     if not tree_sitter_language:
         tree_sitter_language = get_tree_sitter_language(lang)
 

@@ -66,12 +66,12 @@ def calc_codegleu(
 
     # calculate syntax match
     syntax_match_score = syntax_match.corpus_syntax_match(
-        references, hypotheses, lang, tree_sitter_language=tree_sitter_language
+        sources, references, hypotheses, lang, tree_sitter_language=tree_sitter_language
     )
 
     # calculate dataflow match
     dataflow_match_score = dataflow_match.corpus_dataflow_match(
-        references, hypotheses, lang, tree_sitter_language=tree_sitter_language
+        sources, references, hypotheses, lang, tree_sitter_language=tree_sitter_language
     )
 
     alpha, beta, gamma, theta = weights

@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+from collections import Counter
 from tree_sitter import Parser
 
 from .parser import (
@@ -26,11 +27,11 @@ dfg_function = {
 }
 
 
-def calc_syntax_match(references: list[str], candidate: str, lang: str):
-    return corpus_syntax_match([references], [candidate], lang)
+def calc_syntax_match(source: str, references: list[str], candidate: str, lang: str):
+    return corpus_syntax_match([source], [references], [candidate], lang)
 
 
-def corpus_syntax_match(references: list[list[str]], candidates: list[str], lang: str, tree_sitter_language=None) -> float:
+def corpus_syntax_match(sources: list[str], references: list[list[str]], candidates: list[str], lang: str, tree_sitter_language=None) -> float:
     if not tree_sitter_language:
         tree_sitter_language = get_tree_sitter_language(lang)
 
@@ -40,14 +41,16 @@ def corpus_syntax_match(references: list[list[str]], candidates: list[str], lang
     match_count_candidate_to_reference = 0
     total_count = 0
 
-    for i in range(len(candidates)):
-        references_sample = references[i]
-        candidate = candidates[i]
-        for reference in references_sample:
-            candidate = try_remove_comments_and_docstrings(candidate, lang)
-            reference = try_remove_comments_and_docstrings(reference, lang)
+    for source, references_sample, candidate in zip(sources, references, candidates):
+        candidate = try_remove_comments_and_docstrings(candidate, lang)
+        candidate_tree = parser.parse(bytes(candidate, "utf8")).root_node
 
-            candidate_tree = parser.parse(bytes(candidate, "utf8")).root_node
+        source = try_remove_comments_and_docstrings(source, lang)
+        source_tree = parser.parse(bytes(source, "utf8")).root_node
+
+        for reference in references_sample:
+            
+            reference = try_remove_comments_and_docstrings(reference, lang)
             reference_tree = parser.parse(bytes(reference, "utf8")).root_node
 
             def get_all_sub_trees(root_node):
@@ -70,6 +73,8 @@ def corpus_syntax_match(references: list[list[str]], candidates: list[str], lang
             # TODO: fix, now we count number of reference subtrees matching candidate,
             #       but we should count number of candidate subtrees matching reference
             #       See (4) in "3.2 Syntactic AST Match" of https://arxiv.org/pdf/2009.10297.pdf
+            ref_sexps_count = Counter(ref_sexps)
+            cand_sexps_count = Counter(cand_sexps)
             for sub_tree in ref_sexps:
                 if sub_tree in cand_sexps:
                     match_count += 1
