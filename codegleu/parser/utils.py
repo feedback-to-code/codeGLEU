@@ -6,7 +6,13 @@ import tokenize
 from io import StringIO
 
 
-def remove_comments_and_docstrings(source, lang):
+def try_remove_comments_and_docstrings(source: str, lang: str) -> str:
+    try:
+        return remove_comments_and_docstrings(source, lang)
+    except Exception:
+        return source
+
+def remove_comments_and_docstrings(source: str, lang: str) -> str:
     if lang in ["python"]:
         """
         Returns 'source' minus comments and docstrings.

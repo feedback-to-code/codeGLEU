@@ -13,6 +13,7 @@ from .DFG import (
 )
 from .utils import (
     index_to_code_token,
+    try_remove_comments_and_docstrings,
     remove_comments_and_docstrings,
     tree_to_token_index,
     tree_to_variable_index,
@@ -28,6 +29,7 @@ __all__ = [
     "DFG_ruby",
     "DFG_rust",
     "index_to_code_token",
+    "try_remove_comments_and_docstrings",
     "remove_comments_and_docstrings",
     "tree_to_token_index",
     "tree_to_variable_index",

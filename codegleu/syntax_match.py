@@ -11,7 +11,7 @@ from .parser import (
     DFG_php,
     DFG_python,
     DFG_ruby,
-    remove_comments_and_docstrings,
+    try_remove_comments_and_docstrings,
 )
 from .utils import get_tree_sitter_language
 
@@ -44,17 +44,10 @@ def corpus_syntax_match(references: list[list[str]], candidates: list[str], lang
         references_sample = references[i]
         candidate = candidates[i]
         for reference in references_sample:
-            try:
-                candidate = remove_comments_and_docstrings(candidate, lang)
-            except Exception:
-                pass
-            try:
-                reference = remove_comments_and_docstrings(reference, lang)
-            except Exception:
-                pass
+            candidate = try_remove_comments_and_docstrings(candidate, lang)
+            reference = try_remove_comments_and_docstrings(reference, lang)
 
             candidate_tree = parser.parse(bytes(candidate, "utf8")).root_node
-
             reference_tree = parser.parse(bytes(reference, "utf8")).root_node
 
             def get_all_sub_trees(root_node):
