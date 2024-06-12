@@ -2,6 +2,18 @@ import os
 from codegleu import calc_codegleu
 
 
+def pad(s, l, pos: str):
+    match pos:
+        case "r":
+            return s + " " * (l - len(s))
+        case "l":
+            return " " * (l - len(s)) + s
+        case "m":
+            return " " * int((l - len(s))/2) + s + " " * int((l - len(s))/2 + (len(s) % 2 == 1))
+        case _:
+            return s
+
+
 SOURCE = "/codegleu/data/testsource.txt"
 HYPOTHESES = "/codegleu/data/testhypo1.txt"
 REFERENCES = ["/codegleu/data/testref1.txt", "/codegleu/data/testref2.txt"]
@@ -16,10 +28,10 @@ n_weights = [1 / NUMGRAM] * NUMGRAM
 
 runs: list[dict] = []
 runs.append({"title": "total"} | calc_codegleu(sources, references, hypotheses, "java", weights=n_weights))
+titles = ["sensible", "repeat, wrong syntax", "repeat, wrong ngrams"]
 for index, (source, reference, hypothesis) in enumerate(zip(sources, references, hypotheses)):
-    runs.append(
-        {"title": f"row {index+1}"} | calc_codegleu([source], [reference], [hypothesis], "java", weights=n_weights)
-    )
+    title = {"title": titles[index] if index < len(titles) else f"row {index+1}"}
+    runs.append(title | calc_codegleu([source], [reference], [hypothesis], "java", weights=n_weights))
 
 print(f"GLEU+")
 cols = list(runs[0].keys())
@@ -27,11 +39,6 @@ if "title" in cols:
     cols.remove("title")
     cols.insert(0, "title")
 maxlen = max([len(c) for c in cols])
-for col in cols:
-    print(col + " " * (maxlen - len(col)), end="")
-print("")
+print(" | ".join([pad(x, maxlen, "m") for x in cols]))
 for run in runs:
-    for col in cols:
-        val = str(run.get(col, None))
-        print(val + " " * (maxlen - len(val)), end="")
-    print("")
+    print(" | ".join([pad(str(run.get(x, None)), maxlen, "r") for x in cols]))
