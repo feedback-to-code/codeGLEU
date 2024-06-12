@@ -27,12 +27,19 @@ dfg_function = {
 }
 
 
+def counter_diff(a, b):
+    diff = Counter(a)
+    for k in set(a) & set(b):
+        del diff[k]
+    return diff
+
+
 def calc_syntax_match(source: str, references: list[str], candidate: str, lang: str):
     return corpus_syntax_match([source], [references], [candidate], lang)
 
 
 def corpus_syntax_match(
-    sources: list[str], references: list[list[str]], candidates: list[str], lang: str, tree_sitter_language=None
+    sources: list[str], references: list[list[str]], hypotheses: list[str], lang: str, tree_sitter_language=None
 ) -> float:
     if not tree_sitter_language:
         tree_sitter_language = get_tree_sitter_language(lang)
@@ -40,15 +47,14 @@ def corpus_syntax_match(
     parser = Parser()
     parser.language = tree_sitter_language
     match_count = 0
-    match_count_candidate_to_reference = 0
     total_count = 0
 
-    for source, references_sample, candidate in zip(sources, references, candidates):
-        candidate = try_remove_comments_and_docstrings(candidate, lang)
-        candidate_tree = parser.parse(bytes(candidate, "utf8")).root_node
-
+    for source, references_sample, hypothesis in zip(sources, references, hypotheses):
         source = try_remove_comments_and_docstrings(source, lang)
         source_tree = parser.parse(bytes(source, "utf8")).root_node
+
+        hypothesis = try_remove_comments_and_docstrings(hypothesis, lang)
+        hypothesis_tree = parser.parse(bytes(hypothesis, "utf8")).root_node
 
         for reference in references_sample:
 
@@ -68,25 +74,20 @@ def corpus_syntax_match(
                             depth = cur_depth + 1
                             node_stack.append([child_node, depth])
                 return sub_tree_sexp_list
+            
+            nodes_only = lambda t: [x[0] for x in get_all_sub_trees(t)]
 
-            cand_sexps = [x[0] for x in get_all_sub_trees(candidate_tree)]
-            ref_sexps = [x[0] for x in get_all_sub_trees(reference_tree)]
+            source_subexp = Counter(nodes_only(source_tree))
+            hypothesis_subexp = Counter(nodes_only(hypothesis_tree))
+            reference_subexp = Counter(nodes_only(reference_tree))
 
-            # TODO: fix, now we count number of reference subtrees matching candidate,
-            #       but we should count number of candidate subtrees matching reference
-            #       See (4) in "3.2 Syntactic AST Match" of https://arxiv.org/pdf/2009.10297.pdf
-            ref_sexps_count = Counter(ref_sexps)
-            cand_sexps_count = Counter(cand_sexps)
-            for sub_tree in ref_sexps:
-                if sub_tree in cand_sexps:
-                    match_count += 1
+            source_subexp_diff = counter_diff(source_subexp, reference_subexp)
 
-            for sub_tree in cand_sexps:
-                if sub_tree in ref_sexps:
-                    match_count_candidate_to_reference += 1
+            matching_subexp = (hypothesis_subexp & reference_subexp).total()
+            penalty_subexp = (hypothesis_subexp & source_subexp_diff).total()
+            score = matching_subexp - penalty_subexp
 
-            total_count += len(ref_sexps)
-    # print(f'match_count       {match_count} / {total_count}')
-    # print(f'match_count_fixed {match_count_candidate_to_reference} / {total_count}')
+            match_count += max(score, 0)
+            total_count += len(reference_subexp)
     score = match_count / total_count
     return score
