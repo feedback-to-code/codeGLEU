@@ -6,11 +6,11 @@ from codegleu.codegleu import calc_codegleu
 def pad(s, ln, pos: str):
     match pos:
         case "r":
-            return s + " " * (ln - ln(s))
+            return s + " " * (ln - len(s))
         case "l":
-            return " " * (ln - ln(s)) + s
+            return " " * (ln - len(s)) + s
         case "m":
-            return " " * int((ln - ln(s)) / 2) + s + " " * int((ln - ln(s)) / 2 + (ln(s) % 2 == 1))
+            return " " * int((ln - len(s)) / 2) + s + " " * int((ln - len(s)) / 2 + (len(s) % 2 == 1))
         case _:
             return s
 
