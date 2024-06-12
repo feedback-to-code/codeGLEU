@@ -159,7 +159,7 @@ def corpus_gleu(
     n_weights: list[float] = [0.25]*4,
     key_weights: dict[str, float] = {},
     debug: bool = False,
-    ):
+    ) -> float:
     n = len(n_weights)
     gleu_calculator = GLEU(source, references, n_weights, key_weights)
 

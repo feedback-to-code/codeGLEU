@@ -16,7 +16,7 @@ def calc_codegleu(
     predictions: List[str],
     lang: str,
     weights: Tuple[float, float, float, float] = (0.25, 0.25, 0.25, 0.25),
-    tokenizer: Optional[Callable] = None,
+    tokenizer: Optional[Callable[[str], list[str]]] = None,
     keywords_dir: Path = PACKAGE_DIR / "keywords",
 ) -> Dict[str, float]:
     """Calculate codegleu score
@@ -48,8 +48,7 @@ def calc_codegleu(
 
     # calculate ngram match (BLEU)
     if tokenizer is None:
-
-        def tokenizer(s):
+        def tokenizer(s: str) -> list[str]:
             return s.split()
 
     tokenized_srcs = [tokenizer(x) for x in sources]

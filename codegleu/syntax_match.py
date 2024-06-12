@@ -26,11 +26,11 @@ dfg_function = {
 }
 
 
-def calc_syntax_match(references, candidate, lang):
+def calc_syntax_match(references: list[str], candidate: str, lang: str):
     return corpus_syntax_match([references], [candidate], lang)
 
 
-def corpus_syntax_match(references, candidates, lang, tree_sitter_language=None):
+def corpus_syntax_match(references: list[list[str]], candidates: list[str], lang: str, tree_sitter_language=None) -> float:
     if not tree_sitter_language:
         tree_sitter_language = get_tree_sitter_language(lang)
 
