@@ -41,13 +41,13 @@ def counter_diff(a, b):
     return diff
 
 
-def calc_dataflow_match(source: str, references: list[str], hypothesis: str, lang: str, langso_so_file):
-    return corpus_dataflow_match([source], [references], [hypothesis], lang, langso_so_file)
+def calc_dataflow_match(source: str, references: list[str], hypothesis: str, penalty: float, lang: str, langso_so_file):
+    return corpus_dataflow_match([source], [references], [hypothesis], penalty, lang, langso_so_file)
 
 
 # very similar to syntax match, might merge later
 def corpus_dataflow_match(
-    sources: list[str], references: list[list[str]], hypotheses: list[str], lang: str, tree_sitter_language=None
+    sources: list[str], references: list[list[str]], hypotheses: list[str], penalty: float, lang: str, tree_sitter_language=None
 ) -> float:
     if not tree_sitter_language:
         tree_sitter_language = get_tree_sitter_language(lang)
@@ -77,7 +77,7 @@ def corpus_dataflow_match(
 
             matching_dataflow = (hypothesis_dfg_norm & reference_dfg_norm).total()
             penalty_dataflow = (hypothesis_dfg_norm & source_dfg_diff).total()
-            score = matching_dataflow - penalty_dataflow
+            score = matching_dataflow - penalty * penalty_dataflow
 
             match_count += max(score, 0)
             total_count += reference_dfg_norm.total()
@@ -86,7 +86,7 @@ def corpus_dataflow_match(
             "WARNING: There is no reference data-flows extracted from the whole corpus, "
             "and the data-flow match score degenerates to 0. Please consider ignoring this score."
         )
-        return 0
+        return -1
     score = match_count / total_count
     return score
 

@@ -54,13 +54,13 @@ def get_all_sub_trees(root_node):
     return sub_tree_sexp_list
 
 
-def calc_syntax_match(source: str, references: list[str], candidate: str, lang: str):
+def calc_syntax_match(source: str, references: list[str], candidate: str, penalty: float, lang: str):
     return corpus_syntax_match([source], [references], [candidate], lang)
 
 
 # very similar to dataflow match, might merge later
 def corpus_syntax_match(
-    sources: list[str], references: list[list[str]], hypotheses: list[str], lang: str, tree_sitter_language=None
+    sources: list[str], references: list[list[str]], hypotheses: list[str], penalty: float, lang: str, tree_sitter_language=None
 ) -> float:
     if not tree_sitter_language:
         tree_sitter_language = get_tree_sitter_language(lang)
@@ -90,7 +90,7 @@ def corpus_syntax_match(
 
             matching_subexp = (hypothesis_subexp & reference_subexp).total()
             penalty_subexp = (hypothesis_subexp & source_subexp_diff).total()
-            score = matching_subexp - penalty_subexp
+            score = matching_subexp - penalty * penalty_subexp
 
             match_count += max(score, 0)
             total_count += reference_subexp.total()

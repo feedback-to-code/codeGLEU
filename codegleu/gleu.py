@@ -35,6 +35,7 @@ class GLEU:
         references: list[list[list[str]]],
         n_weights: tuple[float, ...] = (0.25,) * 4,
         key_weights: dict[str, float] = {"default": 1},
+        penalty: float = 1, 
     ):
         """
         :param sources: source sentences
@@ -47,6 +48,7 @@ class GLEU:
         :type key_weights: list(float)
         """
         self.order = len(n_weights)
+        self.penalty = penalty
 
         total = sum(n_weights)
         n_weights = tuple(weight / total for weight in n_weights if weight != 0)
@@ -123,7 +125,7 @@ class GLEU:
             source_ngrams = self.all_source_ngrams[i][n]
             reference_ngrams = self.get_ngram_counts(self.refs[i][r_ind], n + 1)
 
-            source_ngram_diff = self.counter_diff(source_ngrams, reference_ngrams)
+            source_ngram_diff = (source_ngrams - reference_ngrams) # + (reference_ngrams - source_ngrams)
 
             def weighted_value(ngram, count):
                 if ngram[0] in self.key_weights.keys():
@@ -133,7 +135,7 @@ class GLEU:
             weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
             correct_ngrams = weighted_count(hypothesis_ngrams & reference_ngrams)
             penalty_ngrams = weighted_count(hypothesis_ngrams & source_ngram_diff)
-            yield max([correct_ngrams - penalty_ngrams, 0])
+            yield max([correct_ngrams - self.penalty * penalty_ngrams, 0])
 
             ngram_count = weighted_count(hypothesis_ngrams)
             yield max([ngram_count, 0])
@@ -165,10 +167,11 @@ def corpus_gleu(
     hypothesis: list[list[str]],
     n_weights: tuple[float, ...] = (0.25,) * 4,
     key_weights: dict[str, float] = {},
+    penalty: float = 1,
     debug: bool = False,
 ) -> float:
     n = len(n_weights)
-    gleu_calculator = GLEU(source, references, n_weights, key_weights)
+    gleu_calculator = GLEU(source, references, n_weights, key_weights, penalty)
 
     def dbprint(*args, **kwargs):
         if debug:
