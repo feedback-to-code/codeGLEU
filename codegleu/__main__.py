@@ -31,9 +31,7 @@ def main(
         for j in range(len(pre_references)):
             ref_for_instance.append(pre_references[j][i])
         references.append(ref_for_instance)
-    assert len(references) * len(references[0]) == len(pre_references) * len(
-        hypotheses
-    ), "References must be converted from column-wise to row-wise"
+    assert len(references) * len(references[0]) == len(pre_references) * len(hypotheses), "References must be converted from column-wise to row-wise"
 
     code_gleu_score = calc_codegleu(
         sources,

@@ -105,12 +105,12 @@ omit = ["tests/*", "codegleu/parser/tree-sitter/*", "tree_sitter"]
 profile = "black"
 src_paths = ["codegleu", "tests"]
 known_first_party = ["codegleu", "tests"]
-line_length = 120
+line_length = 150
 combine_as_imports = true
 skip = ["build", "dist", ".venv", ".eggs", ".mypy_cache", ".pytest_cache", ".git", ".tox", ".nox", "codegleu/parser", "tree_sitter"]
 
 [tool.black]
-line_length=120
+line_length=150
 
 [tool.ruff]
-line-length=120
+line-length=150

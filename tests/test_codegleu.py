@@ -99,9 +99,7 @@ def test_exact_match_works_for_all_langs(lang: str) -> None:
         ("rust", ["fn foo ( x ) -> i32 { x }"], ["fn foo ( x ) -> i32 { x }"], ["fn bar ( y ) -> i32 { y }"]),
     ],
 )
-def test_simple_cases_work_for_all_langs(
-    lang: str, sources: list[Any], predictions: List[Any], references: List[Any]
-) -> None:
+def test_simple_cases_work_for_all_langs(lang: str, sources: list[Any], predictions: List[Any], references: List[Any]) -> None:
     result = calc_codegleu(sources, references, predictions, lang)
     logging.debug(result)
     assert result["codegleu"] == pytest.approx(0.55, 0.1)

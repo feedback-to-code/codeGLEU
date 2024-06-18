@@ -35,7 +35,7 @@ class GLEU:
         references: list[list[list[str]]],
         n_weights: tuple[float, ...] = (0.25,) * 4,
         key_weights: dict[str, float] = {"default": 1},
-        penalty: float = 1, 
+        penalty: float = 1,
     ):
         """
         :param sources: source sentences
@@ -66,9 +66,7 @@ class GLEU:
         self.load_references(references)
 
     def load_sources(self, sources):
-        self.all_source_ngrams = [
-            [self.get_ngram_counts(line, n) for n in range(1, self.order + 1)] for line in sources
-        ]
+        self.all_source_ngrams = [[self.get_ngram_counts(line, n) for n in range(1, self.order + 1)] for line in sources]
 
     def load_references(self, references):
         self.refs = references
@@ -125,7 +123,7 @@ class GLEU:
             source_ngrams = self.all_source_ngrams[i][n]
             reference_ngrams = self.get_ngram_counts(self.refs[i][r_ind], n + 1)
 
-            source_ngram_diff = (source_ngrams - reference_ngrams) # + (reference_ngrams - source_ngrams)
+            source_ngram_diff = source_ngrams - reference_ngrams  # + (reference_ngrams - source_ngrams)
 
             def weighted_value(ngram, count):
                 if ngram[0] in self.key_weights.keys():
@@ -148,9 +146,7 @@ class GLEU:
         if len([stat for stat in stats if stat == 0]) > 0:
             return 0
         (c, r) = stats[:2]
-        log_gleu_prec = sum(
-            [self.n_weights[i] * math.log(float(x) / y) for i, (x, y) in enumerate(zip(stats[2::2], stats[3::2]))]
-        )
+        log_gleu_prec = sum([self.n_weights[i] * math.log(float(x) / y) for i, (x, y) in enumerate(zip(stats[2::2], stats[3::2]))])
         return math.exp(min([0, 1 - float(r) / c]) + log_gleu_prec)
 
 

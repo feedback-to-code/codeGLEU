@@ -58,18 +58,14 @@ class GitRepo:
             repos_dir.mkdir(parents=True, exist_ok=True)
         path = self.get_repo_path()
 
-        if os.path.isdir(path) and is_dir_greater_than(
-            path, 1024
-        ):  # must be some weird remnants if smaller than 1kb
+        if os.path.isdir(path) and is_dir_greater_than(path, 1024):  # must be some weird remnants if smaller than 1kb
             try:
                 print("Found local copy of repo...")
                 repo = git.Repo(path)
                 print("Loaded local copy of repo...")
                 return repo
             except Exception as e:
-                print(
-                    "Loading repo failed. Deleting directory and cloning again..."
-                )
+                print("Loading repo failed. Deleting directory and cloning again...")
                 print(e)
 
                 if os.name == "nt":
@@ -94,30 +90,20 @@ class GitRepo:
         patch: Optional[str],
         relative_patch_file_path: Optional[str | Path] = None,
     ) -> None:
-        if (
-            patch == ""
-            or patch is None
-            or (isinstance(patch, (int, float)) and np.isnan(patch))
-        ):
+        if patch == "" or patch is None or (isinstance(patch, (int, float)) and np.isnan(patch)):
             print("Patch is empty. Skipping apply_patch...")
             return
 
         repo_path = self.get_repo_path()
         # relative to cloned repository root
-        relative_patch_file_path = (
-            Path(relative_patch_file_path)
-            if relative_patch_file_path is not None
-            else self.get_default_patch_file_path()
-        )
+        relative_patch_file_path = Path(relative_patch_file_path) if relative_patch_file_path is not None else self.get_default_patch_file_path()
         # absolute but relative to pepperoni repository root. We have to put the patch file into the cloned repository because git apply expects the paths relative to the cloned repo.
         absolute_patch_file_path = repo_path / relative_patch_file_path
 
         try:
             # make sure that the patch path exists
             absolute_patch_file_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(
-                absolute_patch_file_path, "w+", newline="\n"
-            ) as patch_file:
+            with open(absolute_patch_file_path, "w+", newline="\n") as patch_file:
                 patch_file.write(patch + "\n")
 
             # as said above: we have to pass the relative path here because git apply expects the paths relative to the cloned repo.
@@ -171,18 +157,14 @@ class GitRepo:
 
     def get_file_content(self, file_path: Path) -> str:
         repo_path = self.get_repo_path()
-        relpath = (
-            str(file_path).lstrip("\\").lstrip("/")
-        )  # if you attempt to combine two absolute pathlib paths, one is taken as a source
+        relpath = str(file_path).lstrip("\\").lstrip("/")  # if you attempt to combine two absolute pathlib paths, one is taken as a source
         path = repo_path / relpath
         with open(path, "r") as f:
             return f.read()
 
     def count_lines(self, file_path: Path) -> int:
         repo_path = self.get_repo_path()
-        relpath = (
-            str(file_path).lstrip("\\").lstrip("/")
-        )  # if you attempt to combine two absolute pathlib paths, one is taken as a source
+        relpath = str(file_path).lstrip("\\").lstrip("/")  # if you attempt to combine two absolute pathlib paths, one is taken as a source
         path = repo_path / relpath
         with open(Path(path)) as f:
             return sum(1 for _ in f)
@@ -193,9 +175,7 @@ class GitRepo:
 
     def write_file(self, file_path: Path, content: str) -> None:
         repo_path = self.get_repo_path()
-        relpath = (
-            str(file_path).lstrip("\\").lstrip("/")
-        )  # if you attempt to combine two absolute pathlib paths, one is taken as a source
+        relpath = str(file_path).lstrip("\\").lstrip("/")  # if you attempt to combine two absolute pathlib paths, one is taken as a source
         path = repo_path / relpath
         if not os.path.exists(os.path.dirname(str(path))):
             os.makedirs(os.path.dirname(str(path)))
@@ -215,9 +195,7 @@ class GitRepo:
     def reset_to_base_commit(self, base_commit: str) -> None:
         try:
             self.reset()
-            self.repo.git.fetch(
-                "--all"
-            )  # Fetch all branches and tags from remote
+            self.repo.git.fetch("--all")  # Fetch all branches and tags from remote
             self.repo.git.checkout(base_commit)
         except GitCommandError as e:
             print(f"Error checking out commit {base_commit}: {e}")
@@ -266,9 +244,7 @@ class PatchApplicationException(Exception):
         return f"{super().__str__()}: {str(self.original_exception)}"
 
 
-def create_git_repo(
-    user_and_repo: str, experiments_path: str | Path = "./experiments"
-) -> GitRepo:
+def create_git_repo(user_and_repo: str, experiments_path: str | Path = "./experiments") -> GitRepo:
     user, repo = user_and_repo.split("/")
     return GitRepo(user, repo, experiments_path)
 

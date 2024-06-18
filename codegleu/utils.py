@@ -177,6 +177,5 @@ def get_tree_sitter_language(lang: str) -> Language:
             assert False, "Not reachable"
     except ImportError:
         raise ImportError(
-            f"Tree-sitter language for {lang} not available. "
-            f"Please install the language parser using `pip install tree-sitter-{lang}`."
+            f"Tree-sitter language for {lang} not available. " f"Please install the language parser using `pip install tree-sitter-{lang}`."
         )

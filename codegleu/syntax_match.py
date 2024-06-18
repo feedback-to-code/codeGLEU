@@ -5,17 +5,7 @@ from collections import Counter
 
 from tree_sitter import Parser
 
-from .parser import (
-    DFG_csharp,
-    DFG_go,
-    DFG_java,
-    DFG_javascript,
-    DFG_php,
-    DFG_python,
-    DFG_ruby,
-    DFG_rust,
-    try_remove_comments_and_docstrings,
-)
+from .parser import DFG_csharp, DFG_go, DFG_java, DFG_javascript, DFG_php, DFG_python, DFG_ruby, DFG_rust, try_remove_comments_and_docstrings
 from .utils import get_tree_sitter_language
 
 dfg_function = {

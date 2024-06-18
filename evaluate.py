@@ -115,29 +115,22 @@ with open(snippeted_loc, "r") as fp:
 with open(preprocessed_loc, "r") as fp:
     instances = [json.loads(line) for line in fp.readlines()]
     tobesnippeted = [i for i in instances if i["instance_id"] not in known_iids]
+    tobesnippeted = [i for i in tobesnippeted if "exception" not in i or not i["exception"]]
 
 print(f"Snippeting {len(tobesnippeted)} instances")
 with open(snippeted_loc, "+a") as output:
     for instance in tqdm.tqdm(tobesnippeted):
-        if "exception" not in instance or not instance["exception"]:
-            instance["reference_files_content"] = {
-                key: val for key, val in instance["reference_files_content"].items() if key.endswith(".py")
-            }
-            instance["source_files_content"] = {
-                key: val for key, val in instance["source_files_content"].items() if key.endswith(".py")
-            }
-            instance["hypothesis_files_content"] = {
-                key: val for key, val in instance["hypothesis_files_content"].items() if key.endswith(".py")
-            }
-            assert len(instance["reference_files_content"]) == len(instance["source_files_content"])
-            assert len(instance["reference_files_content"]) == len(instance["hypothesis_files_content"])
-            if len(instance["reference_files_content"]) != 0:
-                for i in ["source", "reference", "hypothesis"]:
-                    instance[f"{i}_snippets_content"] = {
-                        k: generate_snippets(try_remove_comments_and_docstrings(v, lang="python"))
-                        for k, v in instance[f"{i}_files_content"].items()
-                    }
-                output.write(json.dumps(instance) + "\n")
+        instance["reference_files_content"] = {key: val for key, val in instance["reference_files_content"].items() if key.endswith(".py")}
+        instance["source_files_content"] = {key: val for key, val in instance["source_files_content"].items() if key.endswith(".py")}
+        instance["hypothesis_files_content"] = {key: val for key, val in instance["hypothesis_files_content"].items() if key.endswith(".py")}
+        assert len(instance["reference_files_content"]) == len(instance["source_files_content"])
+        assert len(instance["reference_files_content"]) == len(instance["hypothesis_files_content"])
+        if len(instance["reference_files_content"]) != 0:
+            for i in ["source", "reference", "hypothesis"]:
+                instance[f"{i}_snippets_content"] = {
+                    k: generate_snippets(try_remove_comments_and_docstrings(v, lang="python")) for k, v in instance[f"{i}_files_content"].items()
+                }
+            output.write(json.dumps(instance) + "\n")
 
 # Calculate scores
 if not os.path.exists(scored_loc):
@@ -156,9 +149,7 @@ with open(scored_loc, "a") as fp:
         hypothesis = [val for key, val in sorted(instance["hypothesis_files_content"].items())]
         instance["codebleu"] = codebleu.calc_codebleu(references=reference, predictions=hypothesis, lang="python")
         instance["bleu"] = instance["codebleu"]["ngram_match_score"]
-        instance["codegleu"] = codegleu.calc_codegleu(
-            sources=source, references=reference, predictions=hypothesis, lang="python", penalty=1.5
-        )
+        instance["codegleu"] = codegleu.calc_codegleu(sources=source, references=reference, predictions=hypothesis, lang="python", penalty=1.5)
         fp.write(json.dumps(instance) + "\n")
 
 with open(scored_loc, "r") as fp:
@@ -187,19 +178,11 @@ nres_codegleu = sum([i["codegleu"]["codegleu"] for i in notresolved]) / len(notr
 
 resornot = [1] * len(resolved) + [0] * len(notresolved)
 bleu_pearson = pearsonr(resornot, [i["bleu"] for i in resolved] + [i["bleu"] for i in notresolved])
-codebleu_pearson = pearsonr(
-    resornot, [i["codebleu"]["codebleu"] for i in resolved] + [i["codebleu"]["codebleu"] for i in notresolved]
-)
-codegleu_pearson = pearsonr(
-    resornot, [i["codegleu"]["codegleu"] for i in resolved] + [i["codegleu"]["codegleu"] for i in notresolved]
-)
+codebleu_pearson = pearsonr(resornot, [i["codebleu"]["codebleu"] for i in resolved] + [i["codebleu"]["codebleu"] for i in notresolved])
+codegleu_pearson = pearsonr(resornot, [i["codegleu"]["codegleu"] for i in resolved] + [i["codegleu"]["codegleu"] for i in notresolved])
 
 print(f"Resolved Instance Averages:     BLEU: {res_bleu} CodeBLEU: {res_codebleu} CodeGLEU: {res_codegleu}")
 print(f"Non-Resolved Instance Averages: BLEU: {nres_bleu} CodeBLEU: {nres_codebleu} CodeGLEU: {nres_codegleu}")
-print(
-    f"Pearson Correlation:            BLEU: {bleu_pearson[0]} CodeBLEU: {codebleu_pearson[0]} CodeGLEU: {codegleu_pearson[0]}"
-)
-print(
-    f"Pearson Correlation P:          BLEU: {bleu_pearson[1]} CodeBLEU: {codebleu_pearson[1]} CodeGLEU: {codegleu_pearson[1]}"
-)
+print(f"Pearson Correlation:            BLEU: {bleu_pearson[0]} CodeBLEU: {codebleu_pearson[0]} CodeGLEU: {codegleu_pearson[0]}")
+print(f"Pearson Correlation P:          BLEU: {bleu_pearson[1]} CodeBLEU: {codebleu_pearson[1]} CodeGLEU: {codegleu_pearson[1]}")
 pass
