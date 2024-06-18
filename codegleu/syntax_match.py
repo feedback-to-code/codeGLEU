@@ -55,12 +55,17 @@ def get_all_sub_trees(root_node):
 
 
 def calc_syntax_match(source: str, references: list[str], candidate: str, penalty: float, lang: str):
-    return corpus_syntax_match([source], [references], [candidate], lang)
+    return corpus_syntax_match([source], [references], [candidate], penalty, lang)
 
 
 # very similar to dataflow match, might merge later
 def corpus_syntax_match(
-    sources: list[str], references: list[list[str]], hypotheses: list[str], penalty: float, lang: str, tree_sitter_language=None
+    sources: list[str],
+    references: list[list[str]],
+    hypotheses: list[str],
+    penalty: float,
+    lang: str,
+    tree_sitter_language=None,
 ) -> float:
     if not tree_sitter_language:
         tree_sitter_language = get_tree_sitter_language(lang)
