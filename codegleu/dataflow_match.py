@@ -45,18 +45,26 @@ def calc_dataflow_match(source: str, references: list[str], hypothesis: str, pen
     return corpus_dataflow_match([source], [references], [hypothesis], penalty, lang, langso_so_file)
 
 
-# very similar to syntax match, might merge later
-def corpus_dataflow_match(
-    sources: list[str], references: list[list[str]], hypotheses: list[str], penalty: float, lang: str, tree_sitter_language=None
-) -> float:
+def corpus_dataflow_match_intermediate(
+    sources: list[str],
+    references: list[list[str]],
+    hypotheses: list[str],
+    penalty: float,
+    lang: str,
+    tree_sitter_language=None,
+) -> dict[str, list]:
     if not tree_sitter_language:
         tree_sitter_language = get_tree_sitter_language(lang)
 
     parser = Parser()
     parser.language = tree_sitter_language
     parser = [parser, dfg_function[lang]]  # type: ignore[assignment]
-    match_count = 0
-    total_count = 0
+
+    intermediates: dict[str, list] = {
+        "s_interm": [],
+        "h_interm": [],
+        "r_interms": [],
+    }
 
     for source, references_sample, hypothesis in zip(sources, references, hypotheses):
         source = try_remove_comments_and_docstrings(source, lang)
@@ -67,26 +75,52 @@ def corpus_dataflow_match(
         hypothesis_dfg = get_data_flow(hypothesis, parser)
         hypothesis_dfg_norm = Counter(map(str, normalize_dataflow(hypothesis_dfg)))
 
+        intermediates["s_interm"] += [source_dfg_norm]
+        intermediates["h_interm"] += [hypothesis_dfg_norm]
+        refs = []
         for reference in references_sample:
-
             reference = try_remove_comments_and_docstrings(reference, lang)
             reference_dfg = get_data_flow(reference, parser)
             reference_dfg_norm = Counter(map(str, normalize_dataflow(reference_dfg)))
+            refs += [reference_dfg_norm]
+        intermediates["r_interms"] += [refs]
+    return intermediates
 
-            source_dfg_diff = counter_diff(source_dfg_norm, reference_dfg_norm)
 
-            matching_dataflow = (hypothesis_dfg_norm & reference_dfg_norm).total()
-            penalty_dataflow = (hypothesis_dfg_norm & source_dfg_diff).total()
-            score = matching_dataflow - penalty * penalty_dataflow
+# very similar to syntax match, might merge later
+def corpus_dataflow_match(
+    sources: list[str],
+    references: list[list[str]],
+    hypotheses: list[str],
+    penalty: float,
+    lang: str,
+    tree_sitter_language=None,
+    intermediates: dict[str, list] = {},
+) -> float:
+    if not tree_sitter_language:
+        tree_sitter_language = get_tree_sitter_language(lang)
 
-            match_count += max(score, 0)
-            total_count += reference_dfg_norm.total()
+    match_count = 0
+    total_count = 0
+
+    intermediates = intermediates or corpus_dataflow_match_intermediate(sources, references, hypotheses, penalty, lang, tree_sitter_language)
+
+    for source_interm, reference_interms, hypothesis_interm in zip(intermediates["s_interm"], intermediates["r_interms"], intermediates["h_interm"]):
+        for reference_interm in reference_interms:
+            source_subexp_diff = counter_diff(source_interm, reference_interm)
+            matching_subexp = (hypothesis_interm & reference_interm).total()
+            penalty_subexp = (hypothesis_interm & source_subexp_diff).total()
+            score = matching_subexp - penalty * penalty_subexp
+
+            match_count += max(0, score)
+            total_count += max(1, reference_interm.total())
+
     if total_count == 0:
         logging.warning(
             "WARNING: There is no reference data-flows extracted from the whole corpus, "
             "and the data-flow match score degenerates to 0. Please consider ignoring this score."
         )
-        return -1
+        return 0
     score = match_count / total_count
     return score
 

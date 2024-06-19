@@ -158,16 +158,16 @@ def get_gleu_stats(scores):
 
 
 def corpus_gleu(
-    source: list[list[str]],
+    sources: list[list[str]],
     references: list[list[list[str]]],
-    hypothesis: list[list[str]],
+    hypotheses: list[list[str]],
     n_weights: tuple[float, ...] = (0.25,) * 4,
     key_weights: dict[str, float] = {},
     penalty: float = 1,
     debug: bool = False,
 ) -> float:
     n = len(n_weights)
-    gleu_calculator = GLEU(source, references, n_weights, key_weights, penalty)
+    gleu_calculator = GLEU(sources, references, n_weights, key_weights, penalty)
 
     def dbprint(*args, **kwargs):
         if debug:
@@ -178,7 +178,7 @@ def corpus_gleu(
 
     refnum = len(references[0])
     iter_stats = [[0, 0] * (n + 1)] * refnum
-    for i, h in enumerate(hypothesis):
+    for i, h in enumerate(hypotheses):
         stats_by_ref: list[list[int]] = [[]] * refnum
         for ref in range(refnum):
             stats_by_ref[ref] = list(gleu_calculator.gleu_stats(h, i, r_ind=ref))

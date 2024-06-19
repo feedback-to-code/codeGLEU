@@ -4,7 +4,7 @@
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
-from . import dataflow_match, gleu, syntax_match
+from . import dataflow_match, gleu, newgleu, syntax_match
 from .utils import AVAILABLE_LANGS, get_tree_sitter_language
 
 PACKAGE_DIR = Path(__file__).parent
@@ -57,14 +57,14 @@ def calc_codegleu(
     tokenized_hyps = [tokenizer(x) for x in hypotheses]
     tokenized_refs = [[tokenizer(x) for x in reference] for reference in references]
 
-    ngram_match_score = gleu.corpus_gleu(tokenized_srcs, tokenized_refs, tokenized_hyps, penalty=penalty)
+    ngram_match_score = newgleu.corpus_gleu(tokenized_srcs, tokenized_refs, tokenized_hyps, penalty=penalty)
 
     # calculate weighted ngram match
     with open(keywords_dir / (lang + ".txt"), "r", encoding="utf-8") as f:
         keywords = [x.strip() for x in f.readlines()]
 
     key_weights = {f"key_{key}": 1 for key in keywords} | {"default": 0.2}
-    weighted_ngram_match_score = gleu.corpus_gleu(tokenized_srcs, tokenized_refs, tokenized_hyps, key_weights=key_weights, penalty=penalty)
+    weighted_ngram_match_score = newgleu.corpus_gleu(tokenized_srcs, tokenized_refs, tokenized_hyps, key_weights=key_weights, penalty=penalty)
 
     # calculate syntax match
     syntax_match_score = syntax_match.corpus_syntax_match(sources, references, hypotheses, penalty, lang, tree_sitter_language=tree_sitter_language)
@@ -74,11 +74,7 @@ def calc_codegleu(
         sources, references, hypotheses, penalty, lang, tree_sitter_language=tree_sitter_language
     )
     alpha, beta, gamma, theta = weights
-    if dataflow_match_score == -1:
-        dataflow_match_score = 0
-        code_gleu_score = alpha * ngram_match_score + beta * weighted_ngram_match_score + gamma * syntax_match_score + theta * dataflow_match_score
-    else:
-        code_gleu_score = alpha * ngram_match_score + beta * weighted_ngram_match_score + gamma * syntax_match_score + theta * dataflow_match_score
+    code_gleu_score = alpha * ngram_match_score + beta * weighted_ngram_match_score + gamma * syntax_match_score + theta * dataflow_match_score
 
     return {
         "codegleu": code_gleu_score,
