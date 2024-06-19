@@ -176,13 +176,22 @@ nres_bleu = sum([i["bleu"] for i in notresolved]) / len(notresolved)
 nres_codebleu = sum([i["codebleu"]["codebleu"] for i in notresolved]) / len(notresolved)
 nres_codegleu = sum([i["codegleu"]["codegleu"] for i in notresolved]) / len(notresolved)
 
+toscore = resolved + notresolved
 resornot = [1] * len(resolved) + [0] * len(notresolved)
-bleu_pearson = pearsonr(resornot, [i["bleu"] for i in resolved] + [i["bleu"] for i in notresolved])
-codebleu_pearson = pearsonr(resornot, [i["codebleu"]["codebleu"] for i in resolved] + [i["codebleu"]["codebleu"] for i in notresolved])
-codegleu_pearson = pearsonr(resornot, [i["codegleu"]["codegleu"] for i in resolved] + [i["codegleu"]["codegleu"] for i in notresolved])
+bleu_pearson = pearsonr(resornot, [i["bleu"] for i in toscore])
+codebleu_pearson = pearsonr(resornot, [i["codebleu"]["codebleu"] for i in toscore])
+codegleu_pearson = pearsonr(resornot, [i["codegleu"]["codegleu"] for i in toscore])
 
 print(f"Resolved Instance Averages:     BLEU: {res_bleu} CodeBLEU: {res_codebleu} CodeGLEU: {res_codegleu}")
 print(f"Non-Resolved Instance Averages: BLEU: {nres_bleu} CodeBLEU: {nres_codebleu} CodeGLEU: {nres_codegleu}")
 print(f"Pearson Correlation:            BLEU: {bleu_pearson[0]} CodeBLEU: {codebleu_pearson[0]} CodeGLEU: {codegleu_pearson[0]}")
 print(f"Pearson Correlation P:          BLEU: {bleu_pearson[1]} CodeBLEU: {codebleu_pearson[1]} CodeGLEU: {codegleu_pearson[1]}")
+
+
+for group in ["codebleu", "codegleu"]:
+    print(f"Performing Ablation Study for {group}")
+    padlen = max([len(s) for s in toscore[0][group]])
+    for score in toscore[0][group]:
+        pr = pearsonr(resornot, [i[group][score] for i in toscore])
+        print(f"    {score + ' ' * (padlen-len(score))}  Correlation: {'%.10f' % pr[0]}, P-Value {pr[1]}")
 pass
