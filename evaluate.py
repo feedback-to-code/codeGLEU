@@ -184,14 +184,16 @@ codegleu_pearson = pearsonr(resornot, [i["codegleu"]["codegleu"] for i in toscor
 
 print(f"Resolved Instance Averages:     BLEU: {res_bleu} CodeBLEU: {res_codebleu} CodeGLEU: {res_codegleu}")
 print(f"Non-Resolved Instance Averages: BLEU: {nres_bleu} CodeBLEU: {nres_codebleu} CodeGLEU: {nres_codegleu}")
-print(f"Pearson Correlation:            BLEU: {bleu_pearson[0]} CodeBLEU: {codebleu_pearson[0]} CodeGLEU: {codegleu_pearson[0]}")
-print(f"Pearson Correlation P:          BLEU: {bleu_pearson[1]} CodeBLEU: {codebleu_pearson[1]} CodeGLEU: {codegleu_pearson[1]}")
 
-
-for group in ["codebleu", "codegleu"]:
+padlen = 26
+for group in ["bleu", "codebleu", "codegleu"]:
     print(f"Performing Ablation Study for {group}")
-    padlen = max([len(s) for s in toscore[0][group]])
-    for score in toscore[0][group]:
-        pr = pearsonr(resornot, [i[group][score] for i in toscore])
-        print(f"    {score + ' ' * (padlen-len(score))}  Correlation: {'%.10f' % pr[0]}, P-Value {pr[1]}")
+    scores = toscore[0][group]
+    if isinstance(scores, dict):
+        for score in scores:
+            pr = pearsonr(resornot, [i[group][score] for i in toscore])
+            print(f"    {score + ' ' * (padlen-len(score))}  Correlation: {'%.10f' % pr[0]}, P-Value {pr[1]}")
+    else:
+        pr = pearsonr(resornot, [i[group] for i in toscore])
+        print(f"    {group + ' ' * (padlen-len(group))}  Correlation: {'%.10f' % pr[0]}, P-Value {pr[1]}")
 pass
