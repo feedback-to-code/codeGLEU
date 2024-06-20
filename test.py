@@ -1,3 +1,4 @@
+import json
 import os
 
 from codegleu.codegleu import calc_codegleu
@@ -48,3 +49,8 @@ maxlen = max([len(c) for c in cols])
 print(" | ".join([pad(x, maxlen, "m") for x in cols]))
 for run in runs:
     print(" | ".join([pad(str(run.get(x, None)), maxlen, "r") for x in cols]))
+
+rets = calc_codegleu(sources, references, hypotheses, "java", weights=n_weights, ret_intermediates=True)
+intermediates = json.loads(json.dumps(rets["intermediates"]))
+rets2 = calc_codegleu(sources, references, hypotheses, "java", weights=n_weights, intermediates=intermediates)
+pass

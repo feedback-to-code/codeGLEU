@@ -19,7 +19,9 @@ def calc_codegleu(
     penalty: float = 1,
     tokenizer: Optional[Callable[[str], list[str]]] = None,
     keywords_dir: Path = PACKAGE_DIR / "keywords",
-) -> Dict[str, float]:
+    ret_intermediates: bool = False,
+    intermediates: dict = {},
+) -> Dict[str, dict | float]:
     """Calculate codegleu score
 
     Args:
@@ -57,22 +59,26 @@ def calc_codegleu(
     tokenized_hyps = [tokenizer(x) for x in hypotheses]
     tokenized_refs = [[tokenizer(x) for x in reference] for reference in references]
 
-    ngram_match_score = newgleu.corpus_gleu(tokenized_srcs, tokenized_refs, tokenized_hyps, penalty=penalty)
-
     # calculate weighted ngram match
     with open(keywords_dir / (lang + ".txt"), "r", encoding="utf-8") as f:
         keywords = [x.strip() for x in f.readlines()]
 
     key_weights = {f"key_{key}": 1 for key in keywords} | {"default": 0.2}
-    weighted_ngram_match_score = newgleu.corpus_gleu(tokenized_srcs, tokenized_refs, tokenized_hyps, key_weights=key_weights, penalty=penalty)
-
-    # calculate syntax match
-    syntax_match_score = syntax_match.corpus_syntax_match(sources, references, hypotheses, penalty, lang, tree_sitter_language=tree_sitter_language)
-
-    # calculate dataflow match
-    dataflow_match_score = dataflow_match.corpus_dataflow_match(
-        sources, references, hypotheses, penalty, lang, tree_sitter_language=tree_sitter_language
+    n = 4
+    n_weights = (1 / n,) * n
+    if not intermediates:
+        intermediates = {
+            "ngram": newgleu.corpus_gleu_intermediate(tokenized_srcs, tokenized_refs, tokenized_hyps, n),
+            "syntax": syntax_match.corpus_syntax_intermediate(sources, references, hypotheses, lang, tree_sitter_language),
+            "dataflow": dataflow_match.corpus_dataflow_intermediate(sources, references, hypotheses, lang, tree_sitter_language),
+        }
+    ngram_match_score = newgleu.corpus_gleu_score(intermediates=intermediates["ngram"], key_weights={}, n_weights=n_weights, penalty=penalty)
+    weighted_ngram_match_score = newgleu.corpus_gleu_score(
+        intermediates=intermediates["ngram"], key_weights=key_weights, n_weights=n_weights, penalty=penalty
     )
+    syntax_match_score = syntax_match.corpus_syntax_score(intermediates=intermediates["syntax"], penalty=penalty)
+    dataflow_match_score = dataflow_match.corpus_dataflow_score(intermediates=intermediates["dataflow"], penalty=penalty)
+
     alpha, beta, gamma, theta = weights
     code_gleu_score = alpha * ngram_match_score + beta * weighted_ngram_match_score + gamma * syntax_match_score + theta * dataflow_match_score
 
@@ -82,4 +88,4 @@ def calc_codegleu(
         "weighted_ngram_match_score": weighted_ngram_match_score,
         "syntax_match_score": syntax_match_score,
         "dataflow_match_score": dataflow_match_score,
-    }
+    } | ({"intermediates": intermediates} if ret_intermediates else {})

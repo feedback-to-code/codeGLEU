@@ -42,14 +42,13 @@ def counter_diff(a, b):
 
 
 def calc_dataflow_match(source: str, references: list[str], hypothesis: str, penalty: float, lang: str, langso_so_file):
-    return corpus_dataflow_match([source], [references], [hypothesis], penalty, lang, langso_so_file)
+    return corpus_dataflow_score(corpus_dataflow_intermediate([source], [references], [hypothesis], lang, langso_so_file), penalty)
 
 
-def corpus_dataflow_match_intermediate(
+def corpus_dataflow_intermediate(
     sources: list[str],
     references: list[list[str]],
     hypotheses: list[str],
-    penalty: float,
     lang: str,
     tree_sitter_language=None,
 ) -> dict[str, list]:
@@ -88,25 +87,18 @@ def corpus_dataflow_match_intermediate(
 
 
 # very similar to syntax match, might merge later
-def corpus_dataflow_match(
-    sources: list[str],
-    references: list[list[str]],
-    hypotheses: list[str],
-    penalty: float,
-    lang: str,
-    tree_sitter_language=None,
-    intermediates: dict[str, list] = {},
+def corpus_dataflow_score(
+    intermediates: dict[str, list],
+    penalty: float = 1,
 ) -> float:
-    if not tree_sitter_language:
-        tree_sitter_language = get_tree_sitter_language(lang)
-
     match_count = 0
     total_count = 0
 
-    intermediates = intermediates or corpus_dataflow_match_intermediate(sources, references, hypotheses, penalty, lang, tree_sitter_language)
-
     for source_interm, reference_interms, hypothesis_interm in zip(intermediates["s_interm"], intermediates["r_interms"], intermediates["h_interm"]):
         for reference_interm in reference_interms:
+            source_interm = Counter(source_interm)
+            reference_interm = Counter(reference_interm)
+            hypothesis_interm = Counter(hypothesis_interm)
             source_subexp_diff = counter_diff(source_interm, reference_interm)
             matching_subexp = (hypothesis_interm & reference_interm).total()
             penalty_subexp = (hypothesis_interm & source_subexp_diff).total()
