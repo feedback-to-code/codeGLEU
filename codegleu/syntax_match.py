@@ -109,7 +109,7 @@ def corpus_syntax_score(
             score = matching_subexp - penalty * penalty_subexp
 
             match_count += max(0, score)
-            total_count += max(1, reference_interm.total())
+            total_count += max(0, reference_interm.total())
 
     if total_count == 0:
         logging.warning(

@@ -16,7 +16,7 @@ def calc_codegleu(
     predictions: List[str],
     lang: str,
     weights: tuple[float, ...] = (0.25,) * 4,
-    penalty: float = 1,
+    penalty: tuple[float, float, float, float] = (1,1,1,1),
     tokenizer: Optional[Callable[[str], list[str]]] = None,
     keywords_dir: Path = PACKAGE_DIR / "keywords",
     ret_intermediates: bool = False,
@@ -44,20 +44,10 @@ def calc_codegleu(
     # get the tree-sitter language for a given language
     tree_sitter_language = get_tree_sitter_language(lang)
 
-    # preprocess inputs
-    references = [[x.strip() for x in ref] if isinstance(ref, list) else [ref.strip()] for ref in references]
-    hypotheses = [x.strip() for x in predictions]
-    sources = [x.strip() for x in sources]
-
     # calculate ngram match (BLEU)
     if tokenizer is None:
-
         def tokenizer(s: str) -> list[str]:
             return s.split()
-
-    tokenized_srcs = [tokenizer(x) for x in sources]
-    tokenized_hyps = [tokenizer(x) for x in hypotheses]
-    tokenized_refs = [[tokenizer(x) for x in reference] for reference in references]
 
     # calculate weighted ngram match
     with open(keywords_dir / (lang + ".txt"), "r", encoding="utf-8") as f:
@@ -67,17 +57,26 @@ def calc_codegleu(
     n = 4
     n_weights = (1 / n,) * n
     if not intermediates:
+        references = [[x.strip() for x in ref] if isinstance(ref, list) else [ref.strip()] for ref in references]
+        hypotheses = [x.strip() for x in predictions]
+        sources = [x.strip() for x in sources]
+        tokenized_srcs = [tokenizer(x) for x in sources]
+        tokenized_hyps = [tokenizer(x) for x in hypotheses]
+        tokenized_refs = [[tokenizer(x) for x in reference] for reference in references]
+
         intermediates = {
             "ngram": newgleu.corpus_gleu_intermediate(tokenized_srcs, tokenized_refs, tokenized_hyps, n),
             "syntax": syntax_match.corpus_syntax_intermediate(sources, references, hypotheses, lang, tree_sitter_language),
             "dataflow": dataflow_match.corpus_dataflow_intermediate(sources, references, hypotheses, lang, tree_sitter_language),
         }
-    ngram_match_score = newgleu.corpus_gleu_score(intermediates=intermediates["ngram"], key_weights={}, n_weights=n_weights, penalty=penalty)
+
+    
+    ngram_match_score = newgleu.corpus_gleu_score(intermediates=intermediates["ngram"], key_weights={}, n_weights=n_weights, penalty=penalty[0])
     weighted_ngram_match_score = newgleu.corpus_gleu_score(
-        intermediates=intermediates["ngram"], key_weights=key_weights, n_weights=n_weights, penalty=penalty
+        intermediates=intermediates["ngram"], key_weights=key_weights, n_weights=n_weights, penalty=penalty[1]
     )
-    syntax_match_score = syntax_match.corpus_syntax_score(intermediates=intermediates["syntax"], penalty=penalty)
-    dataflow_match_score = dataflow_match.corpus_dataflow_score(intermediates=intermediates["dataflow"], penalty=penalty)
+    syntax_match_score = syntax_match.corpus_syntax_score(intermediates=intermediates["syntax"], penalty=penalty[2])
+    dataflow_match_score = dataflow_match.corpus_dataflow_score(intermediates=intermediates["dataflow"], penalty=penalty[3])
 
     alpha, beta, gamma, theta = weights
     code_gleu_score = alpha * ngram_match_score + beta * weighted_ngram_match_score + gamma * syntax_match_score + theta * dataflow_match_score

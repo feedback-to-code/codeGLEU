@@ -177,9 +177,9 @@ def corpus_gleu(
     dbprint("SID Mean Stdev 95%CI GLEU")
 
     refnum = len(references[0])
-    iter_stats = [[0, 0] * (n + 1)] * refnum
+    iter_stats = [[0, 0] for i in range((n + 1) * refnum)]
     for i, h in enumerate(hypotheses):
-        stats_by_ref: list[list[int]] = [[]] * refnum
+        stats_by_ref: list[list[int]] = [[] for i in range(refnum)]
         for ref in range(refnum):
             stats_by_ref[ref] = list(gleu_calculator.gleu_stats(h, i, r_ind=ref))
             dbprint(stats_by_ref[ref])

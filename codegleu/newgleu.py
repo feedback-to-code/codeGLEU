@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 import logging
+import math
 from collections import Counter
 
 from .utils import ngrams
@@ -11,6 +12,24 @@ def counter_diff(a, b):
     for k in set(a) & set(b):
         del diff[k]
     return diff
+
+
+def brevity_penalty(closest_ref_len, hyp_len):
+    if hyp_len > closest_ref_len:
+        return 1
+    # If hypothesis is empty, brevity penalty = 0 should result in BLEU = 0.0
+    elif hyp_len == 0:
+        return 0
+    else:
+        return math.exp(1 - closest_ref_len / hyp_len)
+
+
+def smoothing_function(p_n, epsilon = 0.1):
+        """
+        Smoothing method 1: Add *epsilon* counts to precision with 0 counts.
+        """
+        return [((p_i[0] + epsilon), p_i[1]) if p_i[0] == 0 else p_i for p_i in p_n]
+
 
 
 def calc_gleu(
@@ -59,17 +78,20 @@ def corpus_gleu_score(
     key_weights: dict[str, float] = {},
     penalty: float = 1,
 ) -> float:
-    match_count = 0
-    total_count = 0
-
+    hyp_lengths = 0
+    ref_lengths = 0
     if key_weights:
         default_key_weight = key_weights.pop("default", 1)
         key_weights = {key.removeprefix("key_"): value for key, value in key_weights.items()}
     else:
         default_key_weight = 1
         key_weights = {}
-
+    p_n = [[0,0] for _ in range(0, len(n_weights))]
     for source_interm, reference_interms, hypothesis_interm in zip(intermediates["s_interm"], intermediates["r_interms"], intermediates["h_interm"]):
+        hyp_len = Counter(hypothesis_interm[0]).total()
+        hyp_lengths += hyp_len
+        ref_lens = (Counter(reference_interm[0]).total() for reference_interm in reference_interms)
+        ref_lengths += min(ref_lens, key=lambda ref_len: (abs(ref_len - hyp_len), ref_len))
         for reference_interm in reference_interms:
             for n in range(0, len(n_weights)):
                 source_interm_n = Counter(source_interm[n])
@@ -82,19 +104,23 @@ def corpus_gleu_score(
                         if f"('{key}'," in ngram:
                             return count * key_weights[key]
                     return count * default_key_weight
-
-                weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
+                if n == 0:
+                    weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
+                else:
+                    weighted_count = lambda mydict: sum([count for _, count in mydict.items()])
                 matching_subexp = weighted_count(hypothesis_interm_n & reference_interm_n)
                 penalty_subexp = weighted_count(hypothesis_interm_n & source_subexp_diff)
 
-                match_count += n_weights[n] * max(matching_subexp - penalty * penalty_subexp, 0)
-                total_count += n_weights[n] * max(weighted_count(reference_interm[n]), 1)
-
-    if total_count == 0:
+                p_n[n][0] += max(0, matching_subexp - penalty * penalty_subexp)
+                p_n[n][1] += max(1, weighted_count(reference_interm_n))
+    if p_n[0][1] == 0:
         logging.warning(
             "WARNING: There is no reference ngrams extracted from the whole corpus, "
             "and the ngram match score degenerates to 0. Please consider ignoring this score."
         )
         return 0
-    score = match_count / total_count
-    return score
+    bp = brevity_penalty(ref_lengths, hyp_lengths)
+    p_n = smoothing_function(p_n)
+    s = (w_i * math.log(p_i[0] / p_i[1]) for w_i, p_i in zip(n_weights, p_n))
+    s = bp * math.exp(math.fsum(s))
+    return s
