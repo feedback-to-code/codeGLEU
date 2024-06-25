@@ -18,10 +18,10 @@ A similarly improved metric for the evaluation of code synthesis does not yet, h
 - [X] Write Tests    
 - [X] Evaluate on suitable dataset    
 - [X] ensure codegleu without penalty == codebleu
-- [ ] 4-grams enough?
+- [X] 4-grams enough?: Minor improvement (+0.02%) in correlation at 10 ngrams vs 4
+- [ ] check n-gram correlation
 - [ ] limit to only changes
 - [ ] snippeting
-- [ ] check n-gram correlation
 - [ ] check correlation with num lines changes / num lines total
 
 ## Related Works / Citations

@@ -178,3 +178,4 @@ cython_debug/
 
 experiments/
 data/scored_instances.jsonl
+wandb

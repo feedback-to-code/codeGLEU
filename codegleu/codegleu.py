@@ -16,11 +16,12 @@ def calc_codegleu(
     predictions: List[str],
     lang: str,
     weights: tuple[float, ...] = (0.25,) * 4,
-    penalty: tuple[float, float, float, float] = (1,1,1,1),
+    penalty: tuple[float, float, float, float] = (1, 1, 1, 1),
     tokenizer: Optional[Callable[[str], list[str]]] = None,
     keywords_dir: Path = PACKAGE_DIR / "keywords",
     ret_intermediates: bool = False,
     intermediates: dict = {},
+    n_weights: tuple[float, ...] = (0.25,) * 4,
 ) -> Dict[str, dict | float]:
     """Calculate codegleu score
 
@@ -46,6 +47,7 @@ def calc_codegleu(
 
     # calculate ngram match (BLEU)
     if tokenizer is None:
+
         def tokenizer(s: str) -> list[str]:
             return s.split()
 
@@ -54,8 +56,9 @@ def calc_codegleu(
         keywords = [x.strip() for x in f.readlines()]
 
     key_weights = {f"key_{key}": 1 for key in keywords} | {"default": 0.2}
-    n = 4
-    n_weights = (1 / n,) * n
+    n = len(n_weights)
+    nwsum = sum(n_weights)
+    n_weights = tuple(i / nwsum for i in n_weights)
     if not intermediates:
         references = [[x.strip() for x in ref] if isinstance(ref, list) else [ref.strip()] for ref in references]
         hypotheses = [x.strip() for x in predictions]
@@ -70,9 +73,8 @@ def calc_codegleu(
             "dataflow": dataflow_match.corpus_dataflow_intermediate(sources, references, hypotheses, lang, tree_sitter_language),
         }
 
-    
-    ngram_match_score = newgleu.corpus_gleu_score(intermediates=intermediates["ngram"], key_weights={}, n_weights=n_weights, penalty=penalty[0])
-    weighted_ngram_match_score = newgleu.corpus_gleu_score(
+    ngram_match_score, p_n = newgleu.corpus_gleu_score(intermediates=intermediates["ngram"], key_weights={}, n_weights=n_weights, penalty=penalty[0])
+    weighted_ngram_match_score, wp_n = newgleu.corpus_gleu_score(
         intermediates=intermediates["ngram"], key_weights=key_weights, n_weights=n_weights, penalty=penalty[1]
     )
     syntax_match_score = syntax_match.corpus_syntax_score(intermediates=intermediates["syntax"], penalty=penalty[2])
@@ -87,4 +89,12 @@ def calc_codegleu(
         "weighted_ngram_match_score": weighted_ngram_match_score,
         "syntax_match_score": syntax_match_score,
         "dataflow_match_score": dataflow_match_score,
-    } | ({"intermediates": intermediates} if ret_intermediates else {})
+        # } | {f"p_{n+1}": p_i[0]/p_i[1] for n, p_i in enumerate(p_n)
+        # } | {f"wp_{n+1}": wp_i[0]/wp_i[1] for n, wp_i in enumerate(wp_n)
+    } | (
+        {
+            "intermediates": intermediates,
+        }
+        if ret_intermediates
+        else {}
+    )

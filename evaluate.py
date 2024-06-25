@@ -7,6 +7,8 @@ import regex as re
 import tqdm
 import tqdm.contrib
 import tqdm.contrib.concurrent
+import unidiff
+import wandb
 from generate_snippets import generate_snippets
 from git_utils import GitRepo
 from scipy.stats import pearsonr
@@ -15,19 +17,10 @@ import codegleu.codebleu.codebleu as codebleu
 import codegleu.codegleu as codegleu
 from codegleu.dataflow_match import try_remove_comments_and_docstrings
 
-instances_dir = "./data/instances"
-preds_loc = "./data/sweagent_preds.jsonl"
-results_loc = "./data/results.json"
-preprocessed_loc = "./data/preprocessed_instances.jsonl"
-snippeted_loc = "./data/snippeted_instances.jsonl"
-scored_loc = "./data/scored_instances.jsonl"
-experiments_dir = "./experiments"
-trim = -1  # size to trim dataset to after filtering
-
 
 def prepare_instances():
     hypotheses = {}
-    with open(preds_loc) as fp:
+    with open(conf["preds_loc"]) as fp:
         for line in fp.readlines():
             prediction = json.loads(line)
             hypotheses[prediction["instance_id"]] = prediction
@@ -38,8 +31,8 @@ def prepare_instances():
 
     inst_iids = set()
     instances_by_repo: dict[str, list[dict]] = {}
-    for file in os.listdir(instances_dir):
-        with open(f"{instances_dir}/{file}") as fp:
+    for file in os.listdir(conf["instances_dir"]):
+        with open(f"{conf['instances_dir']}/{file}") as fp:
             for line in fp:
                 instance = json.loads(line)
                 if instance["repo"] not in instances_by_repo:
@@ -53,13 +46,13 @@ def prepare_instances():
 
     print("Collecting files and applying patches")
     known_iids = []
-    if not os.path.exists(preprocessed_loc):
-        open(preprocessed_loc, "a").close()
-    with open(preprocessed_loc, "r") as output:
+    if not os.path.exists(conf["preprocessed_loc"]):
+        open(conf["preprocessed_loc"], "a").close()
+    with open(conf["preprocessed_loc"], "r") as output:
         for line in output:
             known_iids += [json.loads(line)["instance_id"]]
 
-    with open(preprocessed_loc, "a+") as output:
+    with open(conf["preprocessed_loc"], "a+") as output:
         for reponame in instances_by_repo:
             repoinstances = instances_by_repo[reponame]
             repoinstances = [instance for instance in repoinstances if instance["instance_id"] not in known_iids]
@@ -72,7 +65,7 @@ def prepare_instances():
                     hypothesis_files_content = {}
                     try:
                         hypothesis = hypotheses[instance["instance_id"]]
-                        repo = GitRepo(reponame.split("/")[0], reponame.split("/")[1], experiments_dir)
+                        repo = GitRepo(reponame.split("/")[0], reponame.split("/")[1], conf["experiments_dir"])
 
                         reference_patch: str = instance["patch"]
                         reference_files: set = repo.find_absolute_file_paths_from_patch(reference_patch)
@@ -117,13 +110,13 @@ def prepare_instances():
 
 def snippet_instances():
     # filter to python files and prepare snippets
-    if not os.path.exists(snippeted_loc):
-        open(snippeted_loc, "a").close()
+    if not os.path.exists(conf["snippeted_loc"]):
+        open(conf["snippeted_loc"], "a").close()
     known_iids = []
-    with open(snippeted_loc, "r") as output:
+    with open(conf["snippeted_loc"], "r") as output:
         for line in output:
             known_iids += [json.loads(line)["instance_id"]]
-    with open(preprocessed_loc, "r") as input:
+    with open(conf["preprocessed_loc"], "r") as input:
         tobesnippeted = [json.loads(line) for line in input.readlines()]
         tobesnippeted = [i for i in tobesnippeted if i["instance_id"] not in known_iids]
         tobesnippeted = [i for i in tobesnippeted if "exception" not in i or not i["exception"]]
@@ -131,7 +124,7 @@ def snippet_instances():
 
     if len(tobesnippeted) > 0:
         print(f"Snippeting {len(tobesnippeted)} instances")
-        with open(snippeted_loc, "+a") as output:
+        with open(conf["snippeted_loc"], "+a") as output:
             for instance in tqdm.tqdm(tobesnippeted):
                 instance["reference_files_content"] = {key: val for key, val in instance["reference_files_content"].items() if key.endswith(".py")}
                 instance["source_files_content"] = {key: val for key, val in instance["source_files_content"].items() if key.endswith(".py")}
@@ -149,19 +142,19 @@ def snippet_instances():
 
 def score_instances():
     # Calculate scores
-    if not os.path.exists(scored_loc):
-        open(scored_loc, "a").close()
+    if not os.path.exists(conf["scored_loc"]):
+        open(conf["scored_loc"], "a").close()
     known_iids = []
-    with open(scored_loc, "r") as output:
+    with open(conf["scored_loc"], "r") as output:
         for line in output:
             known_iids += [json.loads(line)["instance_id"]]
-    with open(snippeted_loc, "r") as input:
+    with open(conf["snippeted_loc"], "r") as input:
         tobescored = [json.loads(line) for line in input.readlines()]
         tobescored = [instance for instance in tobescored if instance["instance_id"] not in known_iids]
 
     if len(tobescored) > 0:
         print(f"Calculating {len(tobescored)} scores")
-        with open(scored_loc, "a") as output:
+        with open(conf["scored_loc"], "a") as output:
             for instance in tqdm.tqdm(tobescored):
                 reference = [val for _, val in sorted(instance["reference_files_content"].items())]
                 hypothesis = [val for _, val in sorted(instance["hypothesis_files_content"].items())]
@@ -170,7 +163,13 @@ def score_instances():
                 instance["bleu"] = instance["codebleu"]["ngram_match_score"]
                 if "intermediates" not in instance or not instance["intermediates"]:
                     cg = codegleu.calc_codegleu(
-                        sources=source, references=reference, predictions=hypothesis, lang="python", penalty=codegleu_penalty, ret_intermediates=True
+                        sources=source,
+                        references=reference,
+                        predictions=hypothesis,
+                        lang="python",
+                        penalty=conf["codegleu_penalty"],
+                        ret_intermediates=True,
+                        n_weights=conf["n_weights"],
                     )
                     intermediates = cg.pop("intermediates")
                     instance["codegleu"] = cg
@@ -180,8 +179,9 @@ def score_instances():
                         references=reference,
                         predictions=hypothesis,
                         lang="python",
-                        penalty=codegleu_penalty,
+                        penalty=conf["codegleu_penalty"],
                         intermediates=instance["intermediates"],
+                        n_weights=conf["n_weights"],
                     )
                 output.write(json.dumps(instance | {"intermediates": intermediates}) + "\n")
     else:
@@ -190,19 +190,44 @@ def score_instances():
 
 def recalc(instance):
     instance = json.loads(instance)
-    instance["codegleu"] = codegleu.calc_codegleu([], [], [], lang="python", penalty=codegleu_penalty, intermediates=instance["intermediates"])
-    reference = [val for _, val in sorted(instance["reference_files_content"].items())]
-    hypothesis = [val for _, val in sorted(instance["hypothesis_files_content"].items())]
-    instance["codebleu"] = codebleu.calc_codebleu(references=reference, predictions=hypothesis, lang="python")
-    if instance["codebleu"]["syntax_match_score"] != instance["codegleu"]["syntax_match_score"]:
-        pass
-    return {k: instance[k] for k in ["codebleu", "codegleu", "bleu", "instance_id"]}
+    instance["codegleu"] = codegleu.calc_codegleu(
+        [], [], [], lang="python", penalty=conf["codegleu_penalty"], intermediates=instance["intermediates"]
+    )
+    # source = [val for _, val in sorted(instance["source_files_content"].items())]
+    # reference = [val for _, val in sorted(instance["reference_files_content"].items())]
+    # hypothesis = [val for _, val in sorted(instance["hypothesis_files_content"].items())]
+    # instance["codegleu"] = codegleu.calc_codegleu(source, reference, hypothesis, lang="python", penalty=conf['codegleu_penalty'], n_weights=conf['n_weights'],)
+    # instance["codebleu"] = codebleu.calc_codebleu(reference, hypothesis, lang="python")
+    # if instance["codebleu"]["syntax_match_score"] != instance["codegleu"]["syntax_match_score"]:
+    #     pass
+    filelen = 0
+    patchlen = 0
+    for patchedFile in unidiff.PatchSet(instance["patch"]):
+        hpaths = {"/".join(p.split("\\")[4:]): f for p, f in instance["hypothesis_files_content"].items()}
+        if patchedFile.path in hpaths:
+            filelen += len(hpaths[patchedFile.path])
+            patchlen += len(str(patchedFile))
+    instance["patchpercentage"] = 1 - (patchlen / filelen)
+    return {k: instance[k] for k in ["codebleu", "codegleu", "bleu", "instance_id", "patchpercentage"]}
 
 
-codegleu_penalty = (0, 0, 0, 0)
+conf = {
+    "instances_dir": "./data/instances",
+    "preds_loc": "./data/sweagent_preds.jsonl",
+    "results_loc": "./data/results.json",
+    "preprocessed_loc": "./data/preprocessed_instances.jsonl",
+    "snippeted_loc": "./data/snippeted_instances.jsonl",
+    "scored_loc": "./data/scored_instances.jsonl",
+    "experiments_dir": "./experiments",
+    "trim": -1,  # size to trim dataset to after filtering
+    "codegleu_penalty": (0, 0, 0, 0),
+    "n_weights": (0.25,) * 4,
+}
 
 
 def main():
+    # wandb.login()
+    # wandb.init(project="codegleu", config=conf)
     # collect_instances() not implemented, manual labour via swebench collect
     prepare_instances()
     snippet_instances()
@@ -211,10 +236,10 @@ def main():
     print(f"Recalculating scores")
     scored = []
     processed = 0
-    totalsize = os.path.getsize(scored_loc)
+    totalsize = os.path.getsize(conf["scored_loc"])
     mem = min(max(256_000_000, int(totalsize / 5)), 512_000_000)
     print(f"Allocating {mem} bytes of buffersize")
-    with open(scored_loc, "r") as fp:
+    with open(conf["scored_loc"], "r") as fp:
         buffer = fp.readlines(mem)
         while buffer:
             rets = tqdm.contrib.concurrent.process_map(recalc, buffer, chunksize=5, max_workers=5)
@@ -224,7 +249,7 @@ def main():
             buffer = fp.readlines(mem)
 
     resolved, notresolved = [], []
-    with open(results_loc, "r") as fp:
+    with open(conf["results_loc"], "r") as fp:
         results = json.load(fp)
         for instance in scored:
             if instance["instance_id"] in results["resolved"]:
@@ -233,7 +258,7 @@ def main():
                 notresolved.append(instance)
 
     total = len(resolved) + len(notresolved)
-    targetsize = min(trim, total) if trim != -1 else total
+    targetsize = min(conf["trim"], total) if conf["trim"] != -1 else total
     resolved = random.sample(resolved, int(targetsize * len(resolved) / total + 0.5))
     notresolved = random.sample(notresolved, int(targetsize * len(notresolved) / total + 0.5))
 
@@ -251,18 +276,26 @@ def main():
     print(f"Resolved Instance Averages:     BLEU: {res_bleu} CodeBLEU: {res_codebleu} CodeGLEU: {res_codegleu}")
     print(f"Non-Resolved Instance Averages: BLEU: {nres_bleu} CodeBLEU: {nres_codebleu} CodeGLEU: {nres_codegleu}")
 
+    pr = pearsonr(resornot, [i["patchpercentage"] for i in toscore])
+    print(f"Patch percentage vs resolved:   Correlation: {pr[0]} P-Value: {pr[1]} ")
+
+    toscore = [i | {"bleu": {"bleu": i["bleu"]}} for i in toscore]
     padlen = 26
+    print(" " * 32 + "metric vs resolved          " + "metric vs patchpercent")
+    print(" " * 32 + "Correlation   P-Value       " + "Correlation   P-Value")
     for group in ["bleu", "codebleu", "codegleu"]:
         print(f"Performing Ablation Study for {group}")
         scores = toscore[0][group]
         if isinstance(scores, dict):
             for score in scores:
-                comp = [i[group][score] for i in toscore]
-                pr = pearsonr(resornot, comp)
-                print(f"    {score + ' ' * (padlen-len(score))}  Correlation: {'%.10f' % pr[0]}, P-Value {pr[1]}")
-        else:
-            pr = pearsonr(resornot, [i[group] for i in toscore])
-            print(f"    {group + ' ' * (padlen-len(group))}  Correlation: {'%.10f' % pr[0]}, P-Value {pr[1]}")
+                print(f"    {score + ' ' * (padlen-len(score))} ", end="")
+                pr = pearsonr(resornot, [i[group][score] for i in toscore])
+                print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ", end="")
+                pr = pearsonr([i[group][score] for i in toscore], [i["patchpercentage"] for i in toscore])
+                print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ", end="")
+                print("")
+                # wandb.log({f"{group}_{score}_corr": pr[0], f"{group}_{score}_p": pr[1]})
+    # wandb.finish()
 
 
 if __name__ == "__main__":

@@ -76,7 +76,7 @@ def corpus_gleu_score(
     n_weights: tuple[float, ...] = (0.25,) * 4,
     key_weights: dict[str, float] = {},
     penalty: float = 1,
-) -> float:
+) -> tuple[float, list[list[int]]]:
     hyp_lengths = 0
     ref_lengths = 0
     if key_weights:
@@ -118,9 +118,9 @@ def corpus_gleu_score(
             "WARNING: There is no reference ngrams extracted from the whole corpus, "
             "and the ngram match score degenerates to 0. Please consider ignoring this score."
         )
-        return 0
+        return 0.0, p_n
     bp = brevity_penalty(ref_lengths, hyp_lengths)
     p_n = smoothing_function(p_n)
     sgen = (w_i * math.log(p_i[0] / p_i[1]) for w_i, p_i in zip(n_weights, p_n))
-    s = bp * math.exp(math.fsum(sgen))
-    return s
+    s: float = bp * math.exp(math.fsum(sgen))
+    return s, p_n
