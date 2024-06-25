@@ -15,9 +15,14 @@ A similarly improved metric for the evaluation of code synthesis does not yet, h
 - [X] Rewrite weighted ngram_match_score to use GLEU formula    
 - [X] Rewrite syntax_match_score to use GLEU formula    
 - [X] Rewrite dataflow_match_score to use GLEU formula    
-- [ ] Write Tests    
-- [ ] Evaluate on suitable dataset    
+- [X] Write Tests    
+- [X] Evaluate on suitable dataset    
 - [ ] Tweak Metric / Weights    
+- [ ] 4-grams enough?
+- [ ] limit to only changes
+- [ ] snippeting
+- [ ] check n-gram correlation
+- [ ] check correlation with num lines changes / num lines total
 
 ## Related Works / Citations
 Papineni et al, 2002: [BLEU: a Method for Automatic Evaluation of Machine Translation](https://aclanthology.org/P02-1040.pdf)    
