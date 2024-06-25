@@ -220,7 +220,7 @@ conf = {
     "scored_loc": "./data/scored_instances.jsonl",
     "experiments_dir": "./experiments",
     "trim": -1,  # size to trim dataset to after filtering
-    "codegleu_penalty": (0, 0, 0, 0),
+    "codegleu_penalty": (1, 1, 1, 10),
     "n_weights": (0.25,) * 4,
 }
 
