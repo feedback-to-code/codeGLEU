@@ -1,18 +1,11 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 
+from collections import Counter
+
 from tree_sitter import Parser
 
-from codegleu.parser import (
-    DFG_csharp,
-    DFG_go,
-    DFG_java,
-    DFG_javascript,
-    DFG_php,
-    DFG_python,
-    DFG_ruby,
-    remove_comments_and_docstrings,
-)
+from codegleu.parser import DFG_csharp, DFG_go, DFG_java, DFG_javascript, DFG_php, DFG_python, DFG_ruby, remove_comments_and_docstrings
 from codegleu.utils import get_tree_sitter_language
 
 dfg_function = {
@@ -71,21 +64,14 @@ def corpus_syntax_match(references, candidates, lang, tree_sitter_language=None)
                             node_stack.append([child_node, depth])
                 return sub_tree_sexp_list
 
-            cand_sexps = [x[0] for x in get_all_sub_trees(candidate_tree)]
-            ref_sexps = [x[0] for x in get_all_sub_trees(reference_tree)]
+            cand_sexps = Counter([x[0] for x in get_all_sub_trees(candidate_tree)])
+            ref_sexps = Counter([x[0] for x in get_all_sub_trees(reference_tree)])
 
             # TODO: fix, now we count number of reference subtrees matching candidate,
             #       but we should count number of candidate subtrees matching reference
             #       See (4) in "3.2 Syntactic AST Match" of https://arxiv.org/pdf/2009.10297.pdf
-            for sub_tree in ref_sexps:
-                if sub_tree in cand_sexps:
-                    match_count += 1
-
-            for sub_tree in cand_sexps:
-                if sub_tree in ref_sexps:
-                    match_count_candidate_to_reference += 1
-
-            total_count += len(ref_sexps)
+            match_count += (cand_sexps & ref_sexps).total()
+            total_count += ref_sexps.total()
     # print(f'match_count       {match_count} / {total_count}')
     # print(f'match_count_fixed {match_count_candidate_to_reference} / {total_count}')
     score = match_count / total_count

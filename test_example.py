@@ -11,6 +11,6 @@ reference = """def get_file_content ( self , file_path : Path ) -> str :\n	repo_
 hypothesis = """def get_file_content ( self , file_path : Path ) -> str :\n	path = self.get_repo_path() / file_path.lstrip( "\\" ).lstrip( "/" )\n	with open(path, "r") as f:\n		return f.read()"""
 
 print(codebleu.calc_codebleu(references=[reference], predictions=[hypothesis], lang="python"))
-print(codegleu.calc_codegleu(sources=[source], references=[reference], predictions=[hypothesis], lang="python", penalty=0))
+print(codegleu.calc_codegleu(sources=[source], references=[reference], predictions=[hypothesis], lang="python", penalty=(0, 0, 0, 0)))
 
 pass

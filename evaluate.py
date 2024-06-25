@@ -24,6 +24,7 @@ scored_loc = "./data/scored_instances.jsonl"
 experiments_dir = "./experiments"
 trim = -1  # size to trim dataset to after filtering
 
+
 def prepare_instances():
     hypotheses = {}
     with open(preds_loc) as fp:
@@ -163,16 +164,25 @@ def score_instances():
         with open(scored_loc, "a") as output:
             for instance in tqdm.tqdm(tobescored):
                 reference = [val for _, val in sorted(instance["reference_files_content"].items())]
-                source = [val for _, val in sorted(instance["source_files_content"].items())]
                 hypothesis = [val for _, val in sorted(instance["hypothesis_files_content"].items())]
+                source = [val for _, val in sorted(instance["source_files_content"].items())]
                 instance["codebleu"] = codebleu.calc_codebleu(references=reference, predictions=hypothesis, lang="python")
                 instance["bleu"] = instance["codebleu"]["ngram_match_score"]
                 if "intermediates" not in instance or not instance["intermediates"]:
-                    cg = codegleu.calc_codegleu(sources=source, references=reference, predictions=hypothesis, lang="python", penalty=codegleu_penalty, ret_intermediates=True)
+                    cg = codegleu.calc_codegleu(
+                        sources=source, references=reference, predictions=hypothesis, lang="python", penalty=codegleu_penalty, ret_intermediates=True
+                    )
                     intermediates = cg.pop("intermediates")
                     instance["codegleu"] = cg
                 else:
-                    instance["codegleu"] = codegleu.calc_codegleu(sources=source, references=reference, predictions=hypothesis, lang="python", penalty=codegleu_penalty, intermediates=instance["intermediates"])
+                    instance["codegleu"] = codegleu.calc_codegleu(
+                        sources=source,
+                        references=reference,
+                        predictions=hypothesis,
+                        lang="python",
+                        penalty=codegleu_penalty,
+                        intermediates=instance["intermediates"],
+                    )
                 output.write(json.dumps(instance | {"intermediates": intermediates}) + "\n")
     else:
         print(f"Already done scoring")
@@ -181,10 +191,15 @@ def score_instances():
 def recalc(instance):
     instance = json.loads(instance)
     instance["codegleu"] = codegleu.calc_codegleu([], [], [], lang="python", penalty=codegleu_penalty, intermediates=instance["intermediates"])
+    reference = [val for _, val in sorted(instance["reference_files_content"].items())]
+    hypothesis = [val for _, val in sorted(instance["hypothesis_files_content"].items())]
+    instance["codebleu"] = codebleu.calc_codebleu(references=reference, predictions=hypothesis, lang="python")
+    if instance["codebleu"]["syntax_match_score"] != instance["codegleu"]["syntax_match_score"]:
+        pass
     return {k: instance[k] for k in ["codebleu", "codegleu", "bleu", "instance_id"]}
 
 
-codegleu_penalty = (0,0,0,0)
+codegleu_penalty = (0, 0, 0, 0)
 
 
 def main():
@@ -197,12 +212,13 @@ def main():
     scored = []
     processed = 0
     totalsize = os.path.getsize(scored_loc)
-    mem = min(max(250_000_000, int(totalsize/5)), 500_000_000)
+    mem = min(max(256_000_000, int(totalsize / 5)), 512_000_000)
     print(f"Allocating {mem} bytes of buffersize")
     with open(scored_loc, "r") as fp:
         buffer = fp.readlines(mem)
         while buffer:
-            scored += tqdm.contrib.concurrent.process_map(recalc, buffer, chunksize=5, max_workers=5)
+            rets = tqdm.contrib.concurrent.process_map(recalc, buffer, chunksize=5, max_workers=5)
+            scored += rets
             processed += 1
             print(f"Processed a total of {len(scored)} instances, {processed}/{int(totalsize / mem + 0.5)} expected runs")
             buffer = fp.readlines(mem)
@@ -247,6 +263,7 @@ def main():
         else:
             pr = pearsonr(resornot, [i[group] for i in toscore])
             print(f"    {group + ' ' * (padlen-len(group))}  Correlation: {'%.10f' % pr[0]}, P-Value {pr[1]}")
+
 
 if __name__ == "__main__":
     main()

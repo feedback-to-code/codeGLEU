@@ -140,9 +140,7 @@ def corpus_bleu(
     p_denominators = Counter()  # Key = ngram order, and value = no. of ngram in ref.
     hyp_lengths, ref_lengths = 0, 0
 
-    assert len(list_of_references) == len(hypotheses), (
-        "The number of hypotheses and their reference(s) should be the " "same "
-    )
+    assert len(list_of_references) == len(hypotheses), "The number of hypotheses and their reference(s) should be the " "same "
 
     # Iterate through each hypothesis and their corresponding references.
     for references, hypothesis in zip(list_of_references, hypotheses):
@@ -263,23 +261,22 @@ def modified_precision(references, hypothesis, n):
     """
     # Extracts all ngrams in hypothesis
     # Set an empty Counter if hypothesis is empty.
-
+    numerator = 0
+    denominator = 0
     counts = Counter(ngrams(hypothesis, n)) if len(hypothesis) >= n else Counter()
     # Extract a union of references' counts.
     # max_counts = reduce(or_, [Counter(ngrams(ref, n)) for ref in references])
     max_counts = {}
     for reference in references:
         reference_counts = Counter(ngrams(reference, n)) if len(reference) >= n else Counter()
-        for ngram in counts:
-            max_counts[ngram] = max(max_counts.get(ngram, 0), reference_counts[ngram])
+        clipped_counts = reference_counts & counts
+        denominator += reference_counts.total()
+        numerator += clipped_counts.total()
 
-    # Assigns the intersection between hypothesis and references' counts.
-    clipped_counts = {ngram: min(count, max_counts[ngram]) for ngram, count in counts.items()}
-
-    numerator = sum(clipped_counts.values())
     # Ensures that denominator is minimum 1 to avoid ZeroDivisionError.
     # Usually this happens when the ngram order is > len(reference).
-    denominator = max(1, sum(counts.values()))
+    numerator = max(0, numerator)
+    denominator = max(1, denominator)
 
     # return Fraction(numerator, denominator, _normalize=False)
     return numerator, denominator

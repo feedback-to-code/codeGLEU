@@ -1,6 +1,7 @@
 # Copyright (c) Microsoft Corporation.
 # Licensed under the MIT license.
 import logging
+from collections import Counter
 
 from tree_sitter import Parser
 
@@ -63,15 +64,11 @@ def corpus_dataflow_match(references, candidates, lang, tree_sitter_language=Non
             cand_dfg = get_data_flow(candidate, parser)
             ref_dfg = get_data_flow(reference, parser)
 
-            normalized_cand_dfg = normalize_dataflow(cand_dfg)
-            normalized_ref_dfg = normalize_dataflow(ref_dfg)
+            normalized_cand_dfg = Counter([str(i) for i in normalize_dataflow(cand_dfg)])
+            normalized_ref_dfg = Counter([str(i) for i in normalize_dataflow(ref_dfg)])
 
-            if len(normalized_ref_dfg) > 0:
-                total_count += len(normalized_ref_dfg)
-                for dataflow in normalized_ref_dfg:
-                    if dataflow in normalized_cand_dfg:
-                        match_count += 1
-                        normalized_cand_dfg.remove(dataflow)
+            match_count += (normalized_cand_dfg & normalized_ref_dfg).total()
+            total_count += normalized_ref_dfg.total()
     if total_count == 0:
         # logging.warning(
         #     "WARNING: There is no reference data-flows extracted from the whole corpus, "

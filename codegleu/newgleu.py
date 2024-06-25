@@ -24,12 +24,11 @@ def brevity_penalty(closest_ref_len, hyp_len):
         return math.exp(1 - closest_ref_len / hyp_len)
 
 
-def smoothing_function(p_n, epsilon = 0.1):
-        """
-        Smoothing method 1: Add *epsilon* counts to precision with 0 counts.
-        """
-        return [((p_i[0] + epsilon), p_i[1]) if p_i[0] == 0 else p_i for p_i in p_n]
-
+def smoothing_function(p_n, epsilon=0.1):
+    """
+    Smoothing method 1: Add *epsilon* counts to precision with 0 counts.
+    """
+    return [((p_i[0] + epsilon), p_i[1]) if p_i[0] == 0 else p_i for p_i in p_n]
 
 
 def calc_gleu(
@@ -86,7 +85,7 @@ def corpus_gleu_score(
     else:
         default_key_weight = 1
         key_weights = {}
-    p_n = [[0,0] for _ in range(0, len(n_weights))]
+    p_n = [[0, 0] for _ in range(0, len(n_weights))]
     for source_interm, reference_interms, hypothesis_interm in zip(intermediates["s_interm"], intermediates["r_interms"], intermediates["h_interm"]):
         hyp_len = Counter(hypothesis_interm[0]).total()
         hyp_lengths += hyp_len
@@ -104,6 +103,7 @@ def corpus_gleu_score(
                         if f"('{key}'," in ngram:
                             return count * key_weights[key]
                     return count * default_key_weight
+
                 if n == 0:
                     weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
                 else:
@@ -121,6 +121,6 @@ def corpus_gleu_score(
         return 0
     bp = brevity_penalty(ref_lengths, hyp_lengths)
     p_n = smoothing_function(p_n)
-    s = (w_i * math.log(p_i[0] / p_i[1]) for w_i, p_i in zip(n_weights, p_n))
-    s = bp * math.exp(math.fsum(s))
+    sgen = (w_i * math.log(p_i[0] / p_i[1]) for w_i, p_i in zip(n_weights, p_n))
+    s = bp * math.exp(math.fsum(sgen))
     return s

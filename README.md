@@ -17,7 +17,7 @@ A similarly improved metric for the evaluation of code synthesis does not yet, h
 - [X] Rewrite dataflow_match_score to use GLEU formula    
 - [X] Write Tests    
 - [X] Evaluate on suitable dataset    
-- [ ] Tweak Metric / Weights    
+- [X] ensure codegleu without penalty == codebleu
 - [ ] 4-grams enough?
 - [ ] limit to only changes
 - [ ] snippeting
