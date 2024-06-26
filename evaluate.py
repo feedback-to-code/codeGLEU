@@ -1,7 +1,6 @@
 import json
 import os
 import random
-from io import TextIOWrapper
 from pathlib import Path
 
 import regex as re
@@ -17,14 +16,6 @@ from scipy.stats import pearsonr
 import codegleu.codebleu.codebleu as codebleu
 import codegleu.codegleu as codegleu
 from codegleu.dataflow_match import try_remove_comments_and_docstrings
-
-
-def read_lines_chunked(fp: TextIOWrapper, chunk_size=512_000_000):
-    data = fp.readlines(chunk_size)
-    while data:
-        for line in data:
-            yield line
-        data = fp.readlines(chunk_size)
 
 
 def prepare_instances():
@@ -228,9 +219,9 @@ conf = {
     "snippeted_loc": "./data/snippeted_instances.jsonl",
     "scored_loc": "./data/scored_instances.jsonl",
     "experiments_dir": "./experiments",
-    "trim": -1,  # size to trim dataset to after filtering
     "codegleu_penalty": (1, 1, 1, 10),
     "n_weights": (0.25,) * 4,
+    "trim": -1,  # size to trim dataset to after filtering
 }
 
 
@@ -244,11 +235,18 @@ def main():
 
     print(f"Recalculating scores")
     scored = []
+    processed = 0
     totalsize = os.path.getsize(conf["scored_loc"])
     mem = min(max(256_000_000, int(totalsize / 5)), 512_000_000)
     print(f"Allocating {mem} bytes of buffersize")
     with open(conf["scored_loc"], "r") as fp:
-        scored = tqdm.contrib.concurrent.process_map(recalc, read_lines_chunked(fp, mem), chunksize=5, max_workers=5)
+        buffer = fp.readlines(mem)
+        while buffer:
+            rets = tqdm.contrib.concurrent.process_map(recalc, buffer, chunksize=5, max_workers=5)
+            scored += rets
+            processed += 1
+            print(f"Processed a total of {len(scored)} instances, {processed}/{int(totalsize / mem + 0.5)} expected runs")
+            buffer = fp.readlines(mem)
 
     resolved, notresolved = [], []
     with open(conf["results_loc"], "r") as fp:
@@ -293,10 +291,11 @@ def main():
                 print(f"    {score + ' ' * (padlen-len(score))} ", end="")
                 pr = pearsonr(resornot, [i[group][score] for i in toscore])
                 print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ", end="")
+                wandb.log({f"mvr_{group}_{score}_corr": pr[0], f"mvr_{group}_{score}_p": pr[1]})
                 pr = pearsonr([i[group][score] for i in toscore], [i["patchpercentage"] for i in toscore])
                 print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ", end="")
                 print("")
-                wandb.log({f"{group}_{score}_corr": pr[0], f"{group}_{score}_p": pr[1]})
+                wandb.log({f"mvp_{group}_{score}_corr": pr[0], f"mvp_{group}_{score}_p": pr[1]})
     wandb.finish()
 
 
