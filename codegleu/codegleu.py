@@ -71,15 +71,17 @@ def calc_codegleu(
     syntax_match_score = syntax_match.corpus_syntax_score(intermediates=intermediates["syntax"], penalty=penalty[2])
     dataflow_match_score = dataflow_match.corpus_dataflow_score(intermediates=intermediates["dataflow"], penalty=penalty[3])
 
-    alpha, beta, gamma, theta = weights
-    code_gleu_score = alpha * ngram_match_score + beta * weighted_ngram_match_score + gamma * syntax_match_score + theta * dataflow_match_score
+    scores = [ngram_match_score, weighted_ngram_match_score, syntax_match_score, dataflow_match_score]
+    zeroed_scores = [0 if score == -1 else score for score in scores]
+    weightedscores = [w * s for (s, w) in zip(scores, weights) if s != -1]
+    code_gleu_score = sum(weightedscores) * len(scores) / (len(weightedscores) or 1)
 
     return {
         "codegleu": code_gleu_score,
-        "ngram_match_score": ngram_match_score,
-        "weighted_ngram_match_score": weighted_ngram_match_score,
-        "syntax_match_score": syntax_match_score,
-        "dataflow_match_score": dataflow_match_score,
+        "ngram_match_score": zeroed_scores[0],
+        "weighted_ngram_match_score": zeroed_scores[1],
+        "syntax_match_score": zeroed_scores[2],
+        "dataflow_match_score": zeroed_scores[3],
         # } | {f"p_{n+1}": p_i[0]/p_i[1] for n, p_i in enumerate(p_n)
         # } | {f"wp_{n+1}": wp_i[0]/wp_i[1] for n, wp_i in enumerate(wp_n)
     } | (

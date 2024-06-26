@@ -103,19 +103,22 @@ def corpus_syntax_score(
             source_interm = Counter(source_interm)
             reference_interm = Counter(reference_interm)
             hypothesis_interm = Counter(hypothesis_interm)
-            source_subexp_diff = counter_diff(source_interm, reference_interm)
-            matching_subexp = (hypothesis_interm & reference_interm).total()
-            penalty_subexp = (hypothesis_interm & source_subexp_diff).total()
-            score = matching_subexp - penalty * penalty_subexp
 
-            match_count += max(0, score)
-            total_count += max(0, reference_interm.total())
+            ref_added = reference_interm - (source_interm & reference_interm)
+            ref_removed = source_interm - (source_interm & reference_interm)
+            hyp_added = hypothesis_interm - (source_interm & hypothesis_interm)
+            hyp_removed = source_interm - (source_interm & hypothesis_interm)
+            correct_changes = ((ref_added & hyp_added) + (ref_removed & hyp_removed)).total()
+            wrong_changes = ((hyp_added - ref_added) + (hyp_removed - ref_removed)).total()
+            total_changes = (ref_added + ref_removed).total()
+            match_count += max(0, correct_changes - penalty * wrong_changes)
+            total_count += max(0, total_changes)
 
     if total_count == 0:
-        logging.warning(
-            "WARNING: There is no reference syntax extracted from the whole corpus, "
-            "and the syntax match score degenerates to 0. Please consider ignoring this score."
-        )
-        return 0
+        # logging.warning(
+        #     "WARNING: There is no reference syntax extracted from the whole corpus, "
+        #     "and the syntax match score degenerates to 0. Please consider ignoring this score."
+        # )
+        return -1.0
     score = match_count / total_count
     return score

@@ -1,8 +1,10 @@
+import copy
 import json
 import os
 import random
 from pathlib import Path
 
+import black
 import regex as re
 import tqdm
 import tqdm.contrib
@@ -16,6 +18,7 @@ from scipy.stats import pearsonr
 import codegleu.codebleu.codebleu as codebleu
 import codegleu.codegleu as codegleu
 from codegleu.dataflow_match import try_remove_comments_and_docstrings
+from codegleu.utils import GenWrapper
 
 
 def prepare_instances():
@@ -117,27 +120,42 @@ def snippet_instances():
         for line in output:
             known_iids += [json.loads(line)["instance_id"]]
     with open(conf["preprocessed_loc"], "r") as input:
-        tobesnippeted = [json.loads(line) for line in input.readlines()]
-        tobesnippeted = [i for i in tobesnippeted if i["instance_id"] not in known_iids]
-        tobesnippeted = [i for i in tobesnippeted if "exception" not in i or not i["exception"]]
-        tobesnippeted = [i for i in tobesnippeted if len([k for k in i["reference_files_content"] if k.endswith(".py")]) != 0]
-
-    if len(tobesnippeted) > 0:
-        print(f"Snippeting {len(tobesnippeted)} instances")
-        with open(conf["snippeted_loc"], "+a") as output:
-            for instance in tqdm.tqdm(tobesnippeted):
-                instance["reference_files_content"] = {key: val for key, val in instance["reference_files_content"].items() if key.endswith(".py")}
-                instance["source_files_content"] = {key: val for key, val in instance["source_files_content"].items() if key.endswith(".py")}
-                instance["hypothesis_files_content"] = {key: val for key, val in instance["hypothesis_files_content"].items() if key.endswith(".py")}
-                assert len(instance["reference_files_content"]) == len(instance["source_files_content"])
-                assert len(instance["reference_files_content"]) == len(instance["hypothesis_files_content"])
-                for i in ["source", "reference", "hypothesis"]:
-                    instance[f"{i}_snippets_content"] = {
-                        k: generate_snippets(try_remove_comments_and_docstrings(v, lang="python")) for k, v in instance[f"{i}_files_content"].items()
+        tobesnippeted = (json.loads(line) for line in input)
+        tobesnippeted = (i for i in tobesnippeted if i["instance_id"] not in known_iids)
+        tobesnippeted = (i for i in tobesnippeted if "exception" not in i or not i["exception"])
+        tobesnippeted = (i for i in tobesnippeted if len([k for k in i["reference_files_content"] if k.endswith(".py")]) != 0)
+        genwrap = GenWrapper(tobesnippeted)
+        if genwrap.__nonzero__():
+            print(f"Snippeting instances")
+            with open(conf["snippeted_loc"], "+a") as output:
+                for instance in tqdm.tqdm(genwrap):
+                    instance["reference_files_content"] = {
+                        key: val for key, val in instance["reference_files_content"].items() if key.endswith(".py")
                     }
-                output.write(json.dumps(instance) + "\n")
-    else:
-        print(f"Already done snippeting")
+                    instance["source_files_content"] = {key: val for key, val in instance["source_files_content"].items() if key.endswith(".py")}
+                    instance["hypothesis_files_content"] = {
+                        key: val for key, val in instance["hypothesis_files_content"].items() if key.endswith(".py")
+                    }
+                    assert len(instance["reference_files_content"]) == len(instance["source_files_content"])
+                    assert len(instance["reference_files_content"]) == len(instance["hypothesis_files_content"])
+                    for i in ["source", "reference", "hypothesis"]:
+                        instance[f"{i}_snippets_content"] = {
+                            k: generate_snippets(try_remove_comments_and_docstrings(v, lang="python"))
+                            for k, v in instance[f"{i}_files_content"].items()
+                        }
+                    output.write(json.dumps(instance) + "\n")
+        else:
+            print(f"Already done snippeting")
+
+
+def clean_code(code: str):
+    try:
+        code = black.format_file_contents(code, fast=True, mode=black.Mode(target_versions={black.TargetVersion.PY311}, line_length=200))
+    except Exception:
+        pass
+    for c in ["(", ")", "[", "]", "{", "}"]:
+        code = re.sub(f"\{c}", f" {c} ", code)
+    return code
 
 
 def score_instances():
@@ -149,43 +167,43 @@ def score_instances():
         for line in output:
             known_iids += [json.loads(line)["instance_id"]]
     with open(conf["snippeted_loc"], "r") as input:
-        tobescored = [json.loads(line) for line in input.readlines()]
-        tobescored = [instance for instance in tobescored if instance["instance_id"] not in known_iids]
-
-    if len(tobescored) > 0:
-        print(f"Calculating {len(tobescored)} scores")
-        with open(conf["scored_loc"], "a") as output:
-            for instance in tqdm.tqdm(tobescored):
-                reference = [val for _, val in sorted(instance["reference_files_content"].items())]
-                hypothesis = [val for _, val in sorted(instance["hypothesis_files_content"].items())]
-                source = [val for _, val in sorted(instance["source_files_content"].items())]
-                instance["codebleu"] = codebleu.calc_codebleu(references=reference, predictions=hypothesis, lang="python")
-                instance["bleu"] = instance["codebleu"]["ngram_match_score"]
-                if "intermediates" not in instance or not instance["intermediates"]:
-                    cg = codegleu.calc_codegleu(
-                        sources=source,
-                        references=reference,
-                        predictions=hypothesis,
-                        lang="python",
-                        penalty=conf["codegleu_penalty"],
-                        ret_intermediates=True,
-                        n_weights=conf["n_weights"],
-                    )
-                    intermediates = cg.pop("intermediates")
-                    instance["codegleu"] = cg
-                else:
-                    instance["codegleu"] = codegleu.calc_codegleu(
-                        sources=source,
-                        references=reference,
-                        predictions=hypothesis,
-                        lang="python",
-                        penalty=conf["codegleu_penalty"],
-                        intermediates=instance["intermediates"],
-                        n_weights=conf["n_weights"],
-                    )
-                output.write(json.dumps(instance | {"intermediates": intermediates}) + "\n")
-    else:
-        print(f"Already done scoring")
+        tobescored = (json.loads(line) for line in input)
+        tobescored = (instance for instance in tobescored if instance["instance_id"] not in known_iids)
+        genwrap = GenWrapper(tobescored)
+        if genwrap.__nonzero__():
+            print(f"Calculating scores")
+            with open(conf["scored_loc"], "a") as output:
+                for instance in tqdm.tqdm(tobescored):
+                    reference = [clean_code(val) for _, val in sorted(instance["reference_files_content"].items())]
+                    hypothesis = [clean_code(val) for _, val in sorted(instance["hypothesis_files_content"].items())]
+                    source = [clean_code(val) for _, val in sorted(instance["source_files_content"].items())]
+                    instance["codebleu"] = codebleu.calc_codebleu(references=reference, predictions=hypothesis, lang="python")
+                    instance["bleu"] = instance["codebleu"]["ngram_match_score"]
+                    if "intermediates" not in instance or not instance["intermediates"]:
+                        cg = codegleu.calc_codegleu(
+                            sources=source,
+                            references=reference,
+                            predictions=hypothesis,
+                            lang="python",
+                            penalty=conf["codegleu_penalty"],
+                            ret_intermediates=True,
+                            n_weights=conf["n_weights"],
+                        )
+                        intermediates = cg.pop("intermediates")
+                        instance["codegleu"] = cg
+                    else:
+                        instance["codegleu"] = codegleu.calc_codegleu(
+                            sources=source,
+                            references=reference,
+                            predictions=hypothesis,
+                            lang="python",
+                            penalty=conf["codegleu_penalty"],
+                            intermediates=instance["intermediates"],
+                            n_weights=conf["n_weights"],
+                        )
+                    output.write(json.dumps(instance | {"intermediates": intermediates}) + "\n")
+        else:
+            print(f"Already done scoring")
 
 
 def recalc(instance):
@@ -219,7 +237,7 @@ conf = {
     "snippeted_loc": "./data/snippeted_instances.jsonl",
     "scored_loc": "./data/scored_instances.jsonl",
     "experiments_dir": "./experiments",
-    "codegleu_penalty": (1, 1, 0, 10),
+    "codegleu_penalty": (1, 1, 1, 1),
     "n_weights": (0.25,) * 4,
     "trim": -1,  # size to trim dataset to after filtering
 }

@@ -124,22 +124,23 @@ def corpus_gleu_score(
                     weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
                 else:
                     weighted_count = lambda mydict: sum([count for _, count in mydict.items()])
-                matching_subexp = weighted_count(hypothesis_interm_n & reference_interm_n)
-                penalty_subexp = weighted_count(hypothesis_interm_n & source_subexp_diff)
 
-                ref_added = reference_interm_n - source_interm_n
-                ref_removed = source_interm_n - reference_interm_n
-                hyp_added = hypothesis_interm_n - source_interm_n
-                hyp_removed = source_interm_n - hypothesis_interm_n
+                ref_added = reference_interm_n - (source_interm_n & reference_interm_n)
+                ref_removed = source_interm_n - (source_interm_n & reference_interm_n)
+                hyp_added = hypothesis_interm_n - (source_interm_n & hypothesis_interm_n)
+                hyp_removed = source_interm_n - (source_interm_n & hypothesis_interm_n)
+                correct_changes = weighted_count((ref_added & hyp_added) + (ref_removed & hyp_removed))
+                wrong_changes = weighted_count((hyp_added - ref_added) + (hyp_removed - ref_removed))
+                total_changes = weighted_count(ref_added + ref_removed)
+                p_n[n][0] += max(0, correct_changes - penalty * wrong_changes)
+                p_n[n][1] += max(0, total_changes)
 
-                p_n[n][0] += max(0, matching_subexp - penalty * penalty_subexp)
-                p_n[n][1] += max(1, weighted_count(reference_interm_n))
     if p_n[0][1] == 0:
-        logging.warning(
-            "WARNING: There is no reference ngrams extracted from the whole corpus, "
-            "and the ngram match score degenerates to 0. Please consider ignoring this score."
-        )
-        return 0.0, p_n
+        # logging.warning(
+        #     "WARNING: There is no reference ngrams extracted from the whole corpus, "
+        #     "and the ngram match score degenerates to 0. Please consider ignoring this score."
+        # )
+        return -1.0, p_n
     bp = brevity_penalty(ref_lengths, hyp_lengths)
     p_n = smoothing_function(p_n)
     sgen = (w_i * math.log(p_i[0] / p_i[1]) for w_i, p_i in zip(n_weights, p_n))

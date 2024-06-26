@@ -179,3 +179,28 @@ def get_tree_sitter_language(lang: str) -> Language:
         raise ImportError(
             f"Tree-sitter language for {lang} not available. " f"Please install the language parser using `pip install tree-sitter-{lang}`."
         )
+
+
+class GenWrapper:
+    def __init__(self, iter):
+        self.source = iter
+        self.stored = False
+
+    def __iter__(self):
+        return self
+
+    def __nonzero__(self):
+        if self.stored:
+            return True
+        try:
+            self.value = next(self.source)
+            self.stored = True
+        except StopIteration:
+            return False
+        return True
+
+    def __next__(self):  # use "next" (without underscores) for Python 2.x
+        if self.stored:
+            self.stored = False
+            return self.value
+        return next(self.source)
