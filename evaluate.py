@@ -219,13 +219,14 @@ conf = {
     "snippeted_loc": "./data/snippeted_instances.jsonl",
     "scored_loc": "./data/scored_instances.jsonl",
     "experiments_dir": "./experiments",
-    "codegleu_penalty": (1, 1, 1, 10),
+    "codegleu_penalty": (1, 1, 0, 10),
     "n_weights": (0.25,) * 4,
     "trim": -1,  # size to trim dataset to after filtering
 }
 
 
 def main():
+    os.environ["WANDB_SILENT"] = "true"
     wandb.login()
     wandb.init(project="codegleu", config=conf)
     # collect_instances() not implemented, manual labour via swebench collect
@@ -240,13 +241,15 @@ def main():
     mem = min(max(256_000_000, int(totalsize / 5)), 512_000_000)
     print(f"Allocating {mem} bytes of buffersize")
     with open(conf["scored_loc"], "r") as fp:
-        buffer = fp.readlines(mem)
-        while buffer:
+        while True:
+            buffer = fp.readlines(mem)
+            if not buffer:
+                break
             rets = tqdm.contrib.concurrent.process_map(recalc, buffer, chunksize=5, max_workers=5)
+            del buffer
             scored += rets
             processed += 1
             print(f"Processed a total of {len(scored)} instances, {processed}/{int(totalsize / mem + 0.5)} expected runs")
-            buffer = fp.readlines(mem)
 
     resolved, notresolved = [], []
     with open(conf["results_loc"], "r") as fp:

@@ -3,7 +3,9 @@
 import logging
 import math
 from collections import Counter
+from typing import Callable, Optional
 
+from .parser import try_remove_comments_and_docstrings
 from .utils import ngrams
 
 
@@ -32,14 +34,18 @@ def smoothing_function(p_n, epsilon=0.1):
 
 
 def calc_gleu(
-    source: list[str],
-    references: list[list[str]],
-    hypothesis: list[str],
+    source: str,
+    references: list[str],
+    hypothesis: str,
+    lang: str,
+    tokenizer: Optional[Callable[[str], list[str]]] = None,
     n_weights: tuple[float, ...] = (0.25,) * 4,
     key_weights: dict[str, float] = {},
     penalty: float = 1,
 ):
-    return corpus_gleu_score(corpus_gleu_intermediate([source], [references], [hypothesis], len(n_weights)), n_weights, key_weights, penalty)
+    return corpus_gleu_score(
+        corpus_gleu_intermediate([source], [references], [hypothesis], lang, tokenizer, len(n_weights)), n_weights, key_weights, penalty
+    )
 
 
 def get_all_ngrams(l: list[str], n: int) -> list[Counter]:
@@ -47,9 +53,11 @@ def get_all_ngrams(l: list[str], n: int) -> list[Counter]:
 
 
 def corpus_gleu_intermediate(
-    sources: list[list[str]],
-    references: list[list[list[str]]],
-    hypotheses: list[list[str]],
+    sources: list[str],
+    references: list[list[str]],
+    hypotheses: list[str],
+    lang: str,
+    tokenizer: Optional[Callable[[str], list[str]]] = None,
     n: int = 4,
 ) -> dict[str, list]:
 
@@ -59,13 +67,21 @@ def corpus_gleu_intermediate(
         "r_interms": [],
     }
 
+    if tokenizer is None:
+
+        def tokenizer(s: str) -> list[str]:
+            return try_remove_comments_and_docstrings(s, lang).split()
+
     for source, references_sample, hypothesis in zip(sources, references, hypotheses):
-        intermediates["s_interm"] += [get_all_ngrams(source, n)]
-        intermediates["h_interm"] += [get_all_ngrams(hypothesis, n)]
+        tokenized_src = tokenizer(source)
+        tokenized_hyp = tokenizer(hypothesis)
+        intermediates["s_interm"] += [get_all_ngrams(tokenized_src, n)]
+        intermediates["h_interm"] += [get_all_ngrams(tokenized_hyp, n)]
 
         refs = []
         for reference in references_sample:
-            refs += [get_all_ngrams(reference, n)]
+            tokenized_ref = tokenizer(reference)
+            refs += [get_all_ngrams(tokenized_ref, n)]
         intermediates["r_interms"] += [refs]
     return intermediates
 
@@ -110,6 +126,11 @@ def corpus_gleu_score(
                     weighted_count = lambda mydict: sum([count for _, count in mydict.items()])
                 matching_subexp = weighted_count(hypothesis_interm_n & reference_interm_n)
                 penalty_subexp = weighted_count(hypothesis_interm_n & source_subexp_diff)
+
+                ref_added = reference_interm_n - source_interm_n
+                ref_removed = source_interm_n - reference_interm_n
+                hyp_added = hypothesis_interm_n - source_interm_n
+                hyp_removed = source_interm_n - hypothesis_interm_n
 
                 p_n[n][0] += max(0, matching_subexp - penalty * penalty_subexp)
                 p_n[n][1] += max(1, weighted_count(reference_interm_n))
