@@ -120,10 +120,10 @@ def corpus_gleu_score(
                             return count * key_weights[key]
                     return count * default_key_weight
 
-                if n == 0:
-                    weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
-                else:
-                    weighted_count = lambda mydict: sum([count for _, count in mydict.items()])
+                # if n == 0:
+                weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
+                # else:
+                # weighted_count = lambda mydict: sum([count for _, count in mydict.items()])
 
                 ref_added = reference_interm_n - (source_interm_n & reference_interm_n)
                 ref_removed = source_interm_n - (source_interm_n & reference_interm_n)

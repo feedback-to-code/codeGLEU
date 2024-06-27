@@ -81,10 +81,10 @@ def calc_codegleu(
         "codegleu": code_gleu_score,
         "ngram_match_score": zeroed_scores[0],
         "weighted_ngram_match_score": zeroed_scores[1],
-        "syntax_match_score": zeroed_scores[2],
+        "syntax_match0_score": zeroed_scores[2],
         "dataflow_match_score": zeroed_scores[3],
-        # } | {f"p_{n+1}": p_i[0]/p_i[1] for n, p_i in enumerate(p_n)
-        # } | {f"wp_{n+1}": wp_i[0]/wp_i[1] for n, wp_i in enumerate(wp_n)
+        # } | {f"p_{n+1}": p_i[0]/(p_i[1] or 1) for n, p_i in enumerate(p_n)
+        # } | {f"wp_{n+1}": wp_i[0]/(wp_i[1] or 1) for n, wp_i in enumerate(wp_n)
     } | (
         {
             "intermediates": intermediates,

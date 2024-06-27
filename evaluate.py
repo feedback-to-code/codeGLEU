@@ -325,7 +325,7 @@ def main():
                 print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ")
                 wandb.log({f"mvp_{group}_{score}_corr": pr[0], f"mvp_{group}_{score}_p": pr[1]})
     data = [s["codegleu"] | {"group": "passed" if r else "failed"} for s, r in zip(toscore, resornot)]
-    fig, axs = plt.subplots(ncols=5)
+    fig, axs = plt.subplots(ncols=5, figsize=(20, 5))
     for i, k in enumerate(toscore[0]["codegleu"]):
         sns.histplot(x=k, hue="group", data=pd.DataFrame(data), palette={"passed": "green", "failed": "red"}, binwidth=0.02, ax=axs[i])
     fig.savefig(f"./figs/codegleu_scores.png")
