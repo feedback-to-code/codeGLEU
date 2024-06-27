@@ -1,0 +1,11 @@
+BLEU correlates poorly with resolved tests and strongly with % file unchanged
+CodeBLEU correlates poorly with resolved tests and strongly with % file unchanged, but better than bleu
+CodeGLEU correlates poorly with resolved tests and strongly with % file unchanged, but better than CodeGLEU
+
+here: changes in weights / ngram weights not that significant
+high penalty for dataflow match useful
+dataflow match inherently less related to % file unchanged because variables are named via enumeration
+
+New metric:
+consider only diffs, then compare diff(source, reference) and diff(source, hypothesis)
+Correlates alright with resolved tests (~0.5)

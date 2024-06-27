@@ -1,11 +1,13 @@
-import copy
 import json
 import os
 import random
 from pathlib import Path
 
 import black
+import matplotlib.pyplot as plt
+import pandas as pd
 import regex as re
+import seaborn as sns
 import tqdm
 import tqdm.contrib
 import tqdm.contrib.concurrent
@@ -207,13 +209,13 @@ def score_instances():
 
 
 def recalc(instance):
-    instance = json.loads(instance)
+    # if not instance["resolved"]:
     instance["codegleu"] = codegleu.calc_codegleu(
-        [], [], [], lang="python", penalty=conf["codegleu_penalty"], intermediates=instance["intermediates"]
+        [], [], [], lang="python", penalty=conf["codegleu_penalty"], intermediates=instance["intermediates"], weights=(1, 1, 1, 1)
     )
-    # source = [val for _, val in sorted(instance["source_files_content"].items())]
-    # reference = [val for _, val in sorted(instance["reference_files_content"].items())]
-    # hypothesis = [val for _, val in sorted(instance["hypothesis_files_content"].items())]
+    # reference = [clean_code(val) for _, val in sorted(instance["reference_files_content"].items())]
+    # hypothesis = [clean_code(val) for _, val in sorted(instance["hypothesis_files_content"].items())]
+    # source = [clean_code(val) for _, val in sorted(instance["source_files_content"].items())]
     # instance["codegleu"] = codegleu.calc_codegleu(source, reference, hypothesis, lang="python", penalty=conf['codegleu_penalty'], n_weights=conf['n_weights'],)
     # instance["codebleu"] = codebleu.calc_codebleu(reference, hypothesis, lang="python")
     # if instance["codebleu"]["syntax_match_score"] != instance["codegleu"]["syntax_match_score"]:
@@ -252,6 +254,9 @@ def main():
     snippet_instances()
     score_instances()
 
+    with open(conf["results_loc"], "r") as fp:
+        results = json.load(fp)
+
     print(f"Recalculating scores")
     scored = []
     processed = 0
@@ -263,6 +268,9 @@ def main():
             buffer = fp.readlines(mem)
             if not buffer:
                 break
+            for index, line in enumerate(buffer):
+                buffer[index] = json.loads(line)
+                buffer[index]["resolved"] = buffer[index]["instance_id"] in results["resolved"]
             rets = tqdm.contrib.concurrent.process_map(recalc, buffer, chunksize=5, max_workers=5)
             del buffer
             scored += rets
@@ -314,9 +322,13 @@ def main():
                 print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ", end="")
                 wandb.log({f"mvr_{group}_{score}_corr": pr[0], f"mvr_{group}_{score}_p": pr[1]})
                 pr = pearsonr([i[group][score] for i in toscore], [i["patchpercentage"] for i in toscore])
-                print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ", end="")
-                print("")
+                print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ")
                 wandb.log({f"mvp_{group}_{score}_corr": pr[0], f"mvp_{group}_{score}_p": pr[1]})
+    data = [s["codegleu"] | {"group": "passed" if r else "failed"} for s, r in zip(toscore, resornot)]
+    fig, axs = plt.subplots(ncols=5)
+    for i, k in enumerate(toscore[0]["codegleu"]):
+        sns.histplot(x=k, hue="group", data=pd.DataFrame(data), palette={"passed": "green", "failed": "red"}, binwidth=0.02, ax=axs[i])
+    fig.savefig(f"./figs/codegleu_scores.png")
     wandb.finish()
 
 

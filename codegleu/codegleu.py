@@ -51,8 +51,7 @@ def calc_codegleu(
 
     key_weights = {f"key_{key}": 1 for key in keywords} | {"default": 0.2}
     n = len(n_weights)
-    nwsum = sum(n_weights)
-    n_weights = tuple(i / nwsum for i in n_weights)
+    n_weights = tuple(w / sum(n_weights) for w in n_weights)
     if not intermediates:
         references = [[x.strip() for x in ref] if isinstance(ref, list) else [ref.strip()] for ref in references]
         hypotheses = [x.strip() for x in predictions]
@@ -73,9 +72,11 @@ def calc_codegleu(
 
     scores = [ngram_match_score, weighted_ngram_match_score, syntax_match_score, dataflow_match_score]
     zeroed_scores = [0 if score == -1 else score for score in scores]
-    weightedscores = [w * s for (s, w) in zip(scores, weights) if s != -1]
-    code_gleu_score = sum(weightedscores) * len(scores) / (len(weightedscores) or 1)
-
+    usablescores = [(s, w) for (s, w) in zip(scores, weights) if s != -1]
+    uweighttotal = sum([w for (s, w) in usablescores])
+    code_gleu_score = sum([s * w / (uweighttotal or 1) for (s, w) in usablescores])
+    if code_gleu_score > 0.95:
+        pass
     return {
         "codegleu": code_gleu_score,
         "ngram_match_score": zeroed_scores[0],

@@ -21,7 +21,7 @@ A similarly improved metric for the evaluation of code synthesis does not yet, h
 - [X] 4-grams enough?: Minor improvement (+0.02%) in correlation at 10 ngrams vs 4
 - [X] check n-gram correlation - all about equivalent, at 0.14 or so
 - [X] check correlation with num lines changes / num lines total - bleu 0.8, codebleu 0.65, codegleu 0.5 - still bad
-- [ ] limit to only changes/snippeting?
+- [X] limit to only changes/snippeting?
 
 ## Related Works / Citations
 Papineni et al, 2002: [BLEU: a Method for Automatic Evaluation of Machine Translation](https://aclanthology.org/P02-1040.pdf)    
