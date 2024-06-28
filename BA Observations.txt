@@ -9,3 +9,5 @@ dataflow match inherently less related to % file unchanged because variables are
 New metric:
 consider only diffs, then compare diff(source, reference) and diff(source, hypothesis)
 Correlates alright with resolved tests (~0.5)
+High score on nonresolved (true false positives) = tiny syntactical error spoils results
+Low score on resolved (true false negatives) = viable solution completely differs from gold-solution -> lacking references. synthetic data?

@@ -1,6 +1,7 @@
 import json
 import os
 import random
+import threading
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -170,13 +171,23 @@ def score_instances():
         for line in output:
             known_iids += [json.loads(line)["instance_id"]]
     with open(conf["snippeted_loc"], "r") as input:
-        tobescored = (json.loads(line) for line in input)
-        tobescored = (instance for instance in tobescored if instance["instance_id"] not in known_iids)
-        genwrap = GenWrapper(tobescored)
-        if genwrap.__nonzero__():
-            print(f"Calculating scores")
-            with open(conf["scored_loc"], "a") as output:
-                for instance in tqdm.tqdm(tobescored):
+        print(f"Calculating scores")
+        with open(conf["scored_loc"], "a") as output:
+            tobescored = (json.loads(line) for line in input)
+            tobescored = (instance for instance in tobescored if instance["instance_id"] not in known_iids)
+            genwrap = GenWrapper(tobescored)
+            if not genwrap.__nonzero__():
+                print(f"Already done scoring")
+                return
+            input_lock = threading.Lock()
+            output_lock = threading.Lock()
+
+            def worker():
+                while True:
+                    with input_lock:
+                        instance = next(genwrap, None)
+                    if instance is None:
+                        break
                     reference = [clean_code(val) for _, val in sorted(instance["reference_files_content"].items())]
                     hypothesis = [clean_code(val) for _, val in sorted(instance["hypothesis_files_content"].items())]
                     source = [clean_code(val) for _, val in sorted(instance["source_files_content"].items())]
@@ -204,9 +215,14 @@ def score_instances():
                             intermediates=instance["intermediates"],
                             n_weights=conf["n_weights"],
                         )
-                    output.write(json.dumps(instance | {"intermediates": intermediates}) + "\n")
-        else:
-            print(f"Already done scoring")
+                    with output_lock:
+                        output.write(json.dumps(instance | {"intermediates": intermediates}) + "\n")
+
+            threads = [threading.Thread(target=worker) for _ in range(0, 8)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join()
 
 
 def recalc(instance):

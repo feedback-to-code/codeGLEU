@@ -4,7 +4,7 @@
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
 
-from . import dataflow_match, newgleu, syntax_match
+from . import dataflow_match, ngram_match, syntax_match
 from .utils import AVAILABLE_LANGS, get_tree_sitter_language
 
 PACKAGE_DIR = Path(__file__).parent
@@ -49,7 +49,7 @@ def calc_codegleu(
     with open(keywords_dir / (lang + ".txt"), "r", encoding="utf-8") as f:
         keywords = [x.strip() for x in f.readlines()]
 
-    key_weights = {f"key_{key}": 1 for key in keywords} | {"default": 0.2}
+    key_weights: dict[str, float] = {f"key_{key}": 1 for key in keywords} | {"default": 0.2}
     n = len(n_weights)
     n_weights = tuple(w / sum(n_weights) for w in n_weights)
     if not intermediates:
@@ -58,17 +58,15 @@ def calc_codegleu(
         sources = [x.strip() for x in sources]
 
         intermediates = {
-            "ngram": newgleu.corpus_gleu_intermediate(sources, references, hypotheses, lang=lang, tokenizer=tokenizer, n=n),
+            "ngram": ngram_match.corpus_gleu_intermediate(sources, references, hypotheses, lang=lang, tokenizer=tokenizer, n=n),
             "syntax": syntax_match.corpus_syntax_intermediate(sources, references, hypotheses, lang, tree_sitter_language),
             "dataflow": dataflow_match.corpus_dataflow_intermediate(sources, references, hypotheses, lang, tree_sitter_language),
         }
 
-    ngram_match_score, p_n = newgleu.corpus_gleu_score(intermediates=intermediates["ngram"], key_weights={}, n_weights=n_weights, penalty=penalty[0])
-    weighted_ngram_match_score, wp_n = newgleu.corpus_gleu_score(
-        intermediates=intermediates["ngram"], key_weights=key_weights, n_weights=n_weights, penalty=penalty[1]
-    )
-    syntax_match_score = syntax_match.corpus_syntax_score(intermediates=intermediates["syntax"], penalty=penalty[2])
-    dataflow_match_score = dataflow_match.corpus_dataflow_score(intermediates=intermediates["dataflow"], penalty=penalty[3])
+    ngram_match_score, p_n = ngram_match.corpus_gleu_score(intermediates["ngram"], n_weights, {}, penalty[0])
+    weighted_ngram_match_score, wp_n = ngram_match.corpus_gleu_score(intermediates["ngram"], n_weights, key_weights, penalty[1])
+    syntax_match_score = syntax_match.corpus_syntax_score(intermediates["syntax"], penalty[2])
+    dataflow_match_score = dataflow_match.corpus_dataflow_score(intermediates["dataflow"], penalty[3])
 
     scores = [ngram_match_score, weighted_ngram_match_score, syntax_match_score, dataflow_match_score]
     zeroed_scores = [0 if score == -1 else score for score in scores]
