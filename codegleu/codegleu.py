@@ -75,8 +75,6 @@ def calc_codegleu(
     usablescores = [(s, w) for (s, w) in zip(scores, weights) if s != -1]
     uweighttotal = sum([w for (s, w) in usablescores])
     code_gleu_score = sum([s * w / (uweighttotal or 1) for (s, w) in usablescores])
-    if code_gleu_score > 0.95:
-        pass
     return {
         "codegleu": code_gleu_score,
         "ngram_match_score": zeroed_scores[0],

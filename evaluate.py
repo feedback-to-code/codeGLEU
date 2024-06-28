@@ -1,6 +1,7 @@
 import json
 import os
 import random
+from multiprocessing import Pool
 from pathlib import Path
 
 import black
@@ -240,7 +241,7 @@ conf = {
     "scored_loc": "./data/scored_instances.jsonl",
     "experiments_dir": "./experiments",
     "codegleu_penalty": (1, 1, 1, 1),
-    "n_weights": (0.25,) * 4,
+    "n_weights": (0.1,) * 10,
     "trim": -1,  # size to trim dataset to after filtering
 }
 
@@ -259,23 +260,29 @@ def main():
 
     print(f"Recalculating scores")
     scored = []
-    processed = 0
     totalsize = os.path.getsize(conf["scored_loc"])
-    mem = min(max(256_000_000, int(totalsize / 5)), 512_000_000)
+    processedruns = 0
+    processedinstances = 0
+    mem = min(max(64_000_000, int(totalsize / 20)), 128_000_000)
     print(f"Allocating {mem} bytes of buffersize")
     with open(conf["scored_loc"], "r") as fp:
-        while True:
-            buffer = fp.readlines(mem)
-            if not buffer:
-                break
-            for index, line in enumerate(buffer):
-                buffer[index] = json.loads(line)
-                buffer[index]["resolved"] = buffer[index]["instance_id"] in results["resolved"]
-            rets = tqdm.contrib.concurrent.process_map(recalc, buffer, chunksize=5, max_workers=5)
-            del buffer
-            scored += rets
-            processed += 1
-            print(f"Processed a total of {len(scored)} instances, {processed}/{int(totalsize / mem + 0.5)} expected runs")
+        with tqdm.tqdm(total=1) as pbar:
+            while True:
+                buffer = fp.readlines(mem)
+                if not buffer:
+                    break
+                for index, line in enumerate(buffer):
+                    buffer[index] = json.loads(line)
+                    buffer[index]["resolved"] = buffer[index]["instance_id"] in results["resolved"]
+                with Pool(5) as pool:
+                    rets = pool.map(recalc, buffer, chunksize=10)
+                del buffer
+                scored += rets
+                processedinstances += len(rets)
+                processedruns += 1
+                pbar.total = int(max(totalsize / mem / processedruns, 1) * processedinstances)
+                pbar.update(len(rets))
+                pbar.refresh()
 
     resolved, notresolved = [], []
     with open(conf["results_loc"], "r") as fp:

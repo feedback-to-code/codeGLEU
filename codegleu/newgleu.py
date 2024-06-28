@@ -112,7 +112,6 @@ def corpus_gleu_score(
                 source_interm_n = Counter(source_interm[n])
                 reference_interm_n = Counter(reference_interm[n])
                 hypothesis_interm_n = Counter(hypothesis_interm[n])
-                source_subexp_diff = counter_diff(source_interm_n, reference_interm_n)
 
                 def weighted_value(ngram, count):
                     for key in key_weights:
