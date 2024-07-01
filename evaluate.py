@@ -279,7 +279,7 @@ def main():
     totalsize = os.path.getsize(conf["scored_loc"])
     processedruns = 0
     processedinstances = 0
-    mem = min(max(64_000_000, int(totalsize / 20)), 128_000_000)
+    mem = min(max(256_000_000, int(totalsize / 10)), 512_000_000)
     print(f"Allocating {mem} bytes of buffersize")
     with open(conf["scored_loc"], "r") as fp:
         with tqdm.tqdm(total=1) as pbar:
@@ -291,7 +291,7 @@ def main():
                     buffer[index] = json.loads(line)
                     buffer[index]["resolved"] = buffer[index]["instance_id"] in results["resolved"]
                 with Pool(5) as pool:
-                    rets = pool.map(recalc, buffer, chunksize=10)
+                    rets = pool.map(recalc, buffer, chunksize=5)
                 del buffer
                 scored += rets
                 processedinstances += len(rets)
