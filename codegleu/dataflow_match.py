@@ -68,20 +68,23 @@ def corpus_dataflow_intermediate(
     for source, references_sample, hypothesis in zip(sources, references, hypotheses):
         source = try_remove_comments_and_docstrings(source, lang)
         source_dfg = get_data_flow(source, parser)
-        source_dfg_norm = Counter(map(str, normalize_dataflow(source_dfg)))
+        source_dfg_norm = normalize_dataflow(source_dfg)
+        source_dfg_count = Counter(map(str, source_dfg))
 
         hypothesis = try_remove_comments_and_docstrings(hypothesis, lang)
         hypothesis_dfg = get_data_flow(hypothesis, parser)
-        hypothesis_dfg_norm = Counter(map(str, normalize_dataflow(hypothesis_dfg)))
+        hypothesis_dfg_norm = normalize_dataflow(hypothesis_dfg)
+        hypothesis_dfg_count = Counter(map(str, hypothesis_dfg))
 
-        intermediates["s_interm"] += [source_dfg_norm]
-        intermediates["h_interm"] += [hypothesis_dfg_norm]
+        intermediates["s_interm"] += [source_dfg_count]
+        intermediates["h_interm"] += [hypothesis_dfg_count]
         refs = []
         for reference in references_sample:
             reference = try_remove_comments_and_docstrings(reference, lang)
             reference_dfg = get_data_flow(reference, parser)
-            reference_dfg_norm = Counter(map(str, normalize_dataflow(reference_dfg)))
-            refs += [reference_dfg_norm]
+            reference_dfg_norm = normalize_dataflow(reference_dfg)
+            reference_dfg_count = Counter(map(str, reference_dfg))
+            refs += [reference_dfg_count]
         intermediates["r_interms"] += [refs]
     return intermediates
 

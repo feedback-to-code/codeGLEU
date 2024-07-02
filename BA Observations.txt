@@ -11,3 +11,10 @@ consider only diffs, then compare diff(source, reference) and diff(source, hypot
 Correlates alright with resolved tests (~0.5)
 High score on nonresolved (true false positives) = tiny syntactical error spoils results
 Low score on resolved (true false negatives) = viable solution completely differs from gold-solution -> lacking references. synthetic data?
+
+DiffScore metric:
+clean files first
+insert spaces around parentheses
+running average over references
+compare diffs
+dataflows: only normalize within diffs

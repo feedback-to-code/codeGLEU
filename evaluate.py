@@ -1,3 +1,4 @@
+import itertools
 import json
 import os
 import random
@@ -162,14 +163,24 @@ def clean_code(code: str):
     return code
 
 
+input_lock = threading.Lock()
+output_lock = threading.Lock()
+
+
 def score_instances():
     # Calculate scores
     if not os.path.exists(conf["scored_loc"]):
         open(conf["scored_loc"], "a").close()
+    input_lines = 0
+    output_lines = 0
     known_iids = []
     with open(conf["scored_loc"], "r") as output:
         for line in output:
             known_iids += [json.loads(line)["instance_id"]]
+            output_lines += 1
+    with open(conf["snippeted_loc"], "r") as input:
+        for line in input:
+            input_lines += 1
     with open(conf["snippeted_loc"], "r") as input:
         print(f"Calculating scores")
         with open(conf["scored_loc"], "a") as output:
@@ -179,8 +190,7 @@ def score_instances():
             if not genwrap.__nonzero__():
                 print(f"Already done scoring")
                 return
-            input_lock = threading.Lock()
-            output_lock = threading.Lock()
+            pbar = tqdm.tqdm(total=input_lines - output_lines)
 
             def worker():
                 while True:
@@ -197,7 +207,7 @@ def score_instances():
                         cg = codegleu.calc_codegleu(
                             sources=source,
                             references=reference,
-                            predictions=hypothesis,
+                            hypotheses=hypothesis,
                             lang="python",
                             penalty=conf["codegleu_penalty"],
                             ret_intermediates=True,
@@ -209,31 +219,33 @@ def score_instances():
                         instance["codegleu"] = codegleu.calc_codegleu(
                             sources=source,
                             references=reference,
-                            predictions=hypothesis,
+                            hypotheses=hypothesis,
                             lang="python",
                             penalty=conf["codegleu_penalty"],
                             intermediates=instance["intermediates"],
                             n_weights=conf["n_weights"],
                         )
                     with output_lock:
+                        pbar.update(1)
                         output.write(json.dumps(instance | {"intermediates": intermediates}) + "\n")
 
-            threads = [threading.Thread(target=worker) for _ in range(0, 8)]
-            for thread in threads:
-                thread.start()
-            for thread in threads:
-                thread.join()
+            # threads = [threading.Thread(target=worker) for _ in range(0, 4)]
+            # for thread in threads:
+            #     thread.start()
+            # for thread in threads:
+            #     thread.join()
+            worker()
 
 
 def recalc(instance):
     # if not instance["resolved"]:
     instance["codegleu"] = codegleu.calc_codegleu(
-        [], [], [], lang="python", penalty=conf["codegleu_penalty"], intermediates=instance["intermediates"], weights=(1, 1, 1, 1)
+        [], [], [], lang="python", penalty=conf["codegleu_penalty"], intermediates=instance["intermediates"], weights=conf["weights"]
     )
+    # source = [clean_code(val) for _, val in sorted(instance["source_files_content"].items())]
     # reference = [clean_code(val) for _, val in sorted(instance["reference_files_content"].items())]
     # hypothesis = [clean_code(val) for _, val in sorted(instance["hypothesis_files_content"].items())]
-    # source = [clean_code(val) for _, val in sorted(instance["source_files_content"].items())]
-    # instance["codegleu"] = codegleu.calc_codegleu(source, reference, hypothesis, lang="python", penalty=conf['codegleu_penalty'], n_weights=conf['n_weights'],)
+    # instance["codegleu"] = codegleu.calc_codegleu(source, reference, hypothesis, lang="python", penalty=conf['codegleu_penalty'], n_weights=conf['n_weights'], intermediates=instance["intermediates"])
     # instance["codebleu"] = codebleu.calc_codebleu(reference, hypothesis, lang="python")
     # if instance["codebleu"]["syntax_match_score"] != instance["codegleu"]["syntax_match_score"]:
     #     pass
@@ -256,8 +268,9 @@ conf = {
     "snippeted_loc": "./data/snippeted_instances.jsonl",
     "scored_loc": "./data/scored_instances.jsonl",
     "experiments_dir": "./experiments",
-    "codegleu_penalty": (1, 1, 1, 1),
-    "n_weights": (0.1,) * 10,
+    "codegleu_penalty": (1, 1, 1, 0.5),
+    "weights": (1,) * 4,
+    "n_weights": (0.25,) * 4,
     "trim": -1,  # size to trim dataset to after filtering
 }
 
@@ -287,6 +300,10 @@ def main():
                 buffer = fp.readlines(mem)
                 if not buffer:
                     break
+                processedinstances += len(buffer)
+                processedruns += 1
+                pbar.total = int(max(totalsize / mem / processedruns, 1) * processedinstances)
+                pbar.refresh()
                 for index, line in enumerate(buffer):
                     buffer[index] = json.loads(line)
                     buffer[index]["resolved"] = buffer[index]["instance_id"] in results["resolved"]
@@ -294,9 +311,6 @@ def main():
                     rets = pool.map(recalc, buffer, chunksize=5)
                 del buffer
                 scored += rets
-                processedinstances += len(rets)
-                processedruns += 1
-                pbar.total = int(max(totalsize / mem / processedruns, 1) * processedinstances)
                 pbar.update(len(rets))
                 pbar.refresh()
 
@@ -352,6 +366,10 @@ def main():
     for i, k in enumerate(toscore[0]["codegleu"]):
         sns.histplot(x=k, hue="group", data=pd.DataFrame(data), palette={"passed": "green", "failed": "red"}, binwidth=0.02, ax=axs[i])
     fig.savefig(f"./figs/codegleu_scores.png")
+    plt.close()
+    sns.regplot(x=[i["codegleu"]["codegleu"] for i in toscore], y=resornot)
+    plt.savefig("versus.png")
+    plt.close()
     wandb.finish()
 
 
