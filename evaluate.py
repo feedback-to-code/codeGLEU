@@ -19,6 +19,7 @@ import wandb
 from generate_snippets import generate_snippets
 from git_utils import GitRepo
 from scipy.stats import pearsonr
+from secret_secrets import GIT_TOKEN
 
 import codegleu.codebleu.codebleu as codebleu
 import codegleu.codegleu as codegleu
@@ -26,10 +27,10 @@ from codegleu.dataflow_match import try_remove_comments_and_docstrings
 from codegleu.utils import GenWrapper
 
 
-def prepare_instances():
+def collect_instances():
     hypotheses = {}
     with open(conf["preds_loc"]) as fp:
-        for line in fp.readlines():
+        for line in fp:
             prediction = json.loads(line)
             hypotheses[prediction["instance_id"]] = prediction
 
@@ -48,18 +49,41 @@ def prepare_instances():
                 instances_by_repo[instance["repo"]] += [instance]
                 inst_iids.add(instance["instance_id"])
 
-    missing = list(inst_iids ^ pred_iids)
     # data for all pred_iids should be in data folder
-    assert missing == []
+    missing = pred_iids - inst_iids
+    assert not missing
 
-    print("Collecting files and applying patches")
-    known_iids = []
+
+def prepare_instances():
+    inst_iids = set()
+    instances_by_repo: dict[str, list[dict]] = {}
+    for file in os.listdir(conf["instances_dir"]):
+        with open(f"{conf['instances_dir']}/{file}") as fp:
+            for line in fp:
+                instance = json.loads(line)
+                if instance["repo"] not in instances_by_repo:
+                    instances_by_repo[instance["repo"]] = []
+                instances_by_repo[instance["repo"]] += [instance]
+                inst_iids.add(instance["instance_id"])
+
+    hypotheses = {}
+    with open(conf["preds_loc"]) as fp:
+        for line in fp:
+            prediction = json.loads(line)
+            if prediction["instance_id"] in inst_iids:
+                hypotheses[prediction["instance_id"]] = prediction
+
+    known_iids = set()
     if not os.path.exists(conf["preprocessed_loc"]):
         open(conf["preprocessed_loc"], "a").close()
     with open(conf["preprocessed_loc"], "r") as output:
         for line in output:
-            known_iids += [json.loads(line)["instance_id"]]
+            known_iids.add(json.loads(line)["instance_id"])
 
+    if not (inst_iids ^ known_iids):
+        print(f"Already done preprocessing files")
+        return
+    print("Collecting files and applying patches")
     with open(conf["preprocessed_loc"], "a+") as output:
         for reponame in instances_by_repo:
             repoinstances = instances_by_repo[reponame]
@@ -113,7 +137,7 @@ def prepare_instances():
                         instance["hypothesis_files_content"] = hypothesis_files_content
                         output.write(json.dumps(instance) + "\n")
             else:
-                print(f"Already collected instances for repo {reponame}.")
+                print(f"Already preprocessed files for repo {reponame}.")
 
 
 def snippet_instances():
@@ -130,27 +154,22 @@ def snippet_instances():
         tobesnippeted = (i for i in tobesnippeted if "exception" not in i or not i["exception"])
         tobesnippeted = (i for i in tobesnippeted if len([k for k in i["reference_files_content"] if k.endswith(".py")]) != 0)
         genwrap = GenWrapper(tobesnippeted)
-        if genwrap.__nonzero__():
-            print(f"Snippeting instances")
-            with open(conf["snippeted_loc"], "+a") as output:
-                for instance in tqdm.tqdm(genwrap):
-                    instance["reference_files_content"] = {
-                        key: val for key, val in instance["reference_files_content"].items() if key.endswith(".py")
-                    }
-                    instance["source_files_content"] = {key: val for key, val in instance["source_files_content"].items() if key.endswith(".py")}
-                    instance["hypothesis_files_content"] = {
-                        key: val for key, val in instance["hypothesis_files_content"].items() if key.endswith(".py")
-                    }
-                    assert len(instance["reference_files_content"]) == len(instance["source_files_content"])
-                    assert len(instance["reference_files_content"]) == len(instance["hypothesis_files_content"])
-                    for i in ["source", "reference", "hypothesis"]:
-                        instance[f"{i}_snippets_content"] = {
-                            k: generate_snippets(try_remove_comments_and_docstrings(v, lang="python"))
-                            for k, v in instance[f"{i}_files_content"].items()
-                        }
-                    output.write(json.dumps(instance) + "\n")
-        else:
+        if not genwrap.__nonzero__():
             print(f"Already done snippeting")
+            return
+        print(f"Snippeting instances")
+        with open(conf["snippeted_loc"], "+a") as output:
+            for instance in tqdm.tqdm(genwrap):
+                instance["reference_files_content"] = {key: val for key, val in instance["reference_files_content"].items() if key.endswith(".py")}
+                instance["source_files_content"] = {key: val for key, val in instance["source_files_content"].items() if key.endswith(".py")}
+                instance["hypothesis_files_content"] = {key: val for key, val in instance["hypothesis_files_content"].items() if key.endswith(".py")}
+                assert len(instance["reference_files_content"]) == len(instance["source_files_content"])
+                assert len(instance["reference_files_content"]) == len(instance["hypothesis_files_content"])
+                for i in ["source", "reference", "hypothesis"]:
+                    instance[f"{i}_snippets_content"] = {
+                        k: generate_snippets(try_remove_comments_and_docstrings(v, lang="python")) for k, v in instance[f"{i}_files_content"].items()
+                    }
+                output.write(json.dumps(instance) + "\n")
 
 
 def clean_code(code: str):
@@ -182,7 +201,6 @@ def score_instances():
         for line in input:
             input_lines += 1
     with open(conf["snippeted_loc"], "r") as input:
-        print(f"Calculating scores")
         with open(conf["scored_loc"], "a") as output:
             tobescored = (json.loads(line) for line in input)
             tobescored = (instance for instance in tobescored if instance["instance_id"] not in known_iids)
@@ -190,6 +208,7 @@ def score_instances():
             if not genwrap.__nonzero__():
                 print(f"Already done scoring")
                 return
+            print(f"Calculating scores")
             pbar = tqdm.tqdm(total=input_lines - output_lines)
 
             def worker():
@@ -262,24 +281,27 @@ def recalc(instance):
 
 conf = {
     "instances_dir": "./data/instances",
-    "preds_loc": "./data/sweagent_preds.jsonl",
-    "results_loc": "./data/results.json",
-    "preprocessed_loc": "./data/preprocessed_instances.jsonl",
-    "snippeted_loc": "./data/snippeted_instances.jsonl",
-    "scored_loc": "./data/scored_instances.jsonl",
     "experiments_dir": "./experiments",
-    "codegleu_penalty": (1, 1, 1, 0.5),
+    "trim": -1,  # size to trim dataset to after filtering
+    "model": "20240402_sweagent_gpt4",
+    "codegleu_penalty": (0.25, 0.25, 0.25, 0.25),
     "weights": (1,) * 4,
     "n_weights": (0.25,) * 4,
-    "trim": -1,  # size to trim dataset to after filtering
 }
+conf["model_path"] = f"./data/models/{conf['model']}"
+conf["preds_loc"] = f"{conf['model_path']}/all_preds.jsonl"
+conf["results_loc"] = f"{conf['model_path']}/results/results.json"
+conf["preprocessed_loc"] = f"{conf['model_path']}/preprocessed_instances.jsonl"
+conf["snippeted_loc"] = f"{conf['model_path']}/snippeted_instances.jsonl"
+conf["scored_loc"] = f"{conf['model_path']}/scored_instances.jsonl"
+conf["figs_loc"] = f"./figs/{conf['model']}"
 
 
 def main():
     os.environ["WANDB_SILENT"] = "true"
     wandb.login()
     wandb.init(project="codegleu", config=conf)
-    # collect_instances() not implemented, manual labour via swebench collect
+    collect_instances()
     prepare_instances()
     snippet_instances()
     score_instances()
@@ -365,10 +387,10 @@ def main():
     fig, axs = plt.subplots(ncols=5, figsize=(20, 5))
     for i, k in enumerate(toscore[0]["codegleu"]):
         sns.histplot(x=k, hue="group", data=pd.DataFrame(data), palette={"passed": "green", "failed": "red"}, binwidth=0.02, ax=axs[i])
-    fig.savefig(f"./figs/codegleu_scores.png")
+    fig.savefig(f"{conf['figs_loc']}/codegleu_scores.png")
     plt.close()
     sns.regplot(x=[i["codegleu"]["codegleu"] for i in toscore], y=resornot)
-    plt.savefig("versus.png")
+    plt.savefig(f"{conf['figs_loc']}/versus.png")
     plt.close()
     wandb.finish()
 
