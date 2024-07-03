@@ -38,7 +38,11 @@ class GitRepo:
         self.experiments_path = Path(experiments_path)
         self.repos_path = Path(experiments_path) / "repos"
         self.repo = self.clone_repo()
-        self.reset()
+        try:
+            self.reset()
+        except Exception:
+            self.repo = self.clone_repo(force_reclone=True)
+            self.reset()
 
     def get_repo_id(self) -> str:
         return f"{self.repo_user}/{self.repo_name}"
@@ -49,25 +53,20 @@ class GitRepo:
     def get_repo_path(self) -> Path:
         return self.get_repos_dir() / self.repo_user / self.repo_name
 
-    def clone_repo(self) -> git.Repo:
+    def clone_repo(self, force_reclone=False) -> git.Repo:
         url = self.get_git_url()
 
-        print("Searching for repo " + url + "...")
         repos_dir = self.get_repos_dir()
         if not os.path.isdir(repos_dir):
             repos_dir.mkdir(parents=True, exist_ok=True)
         path = self.get_repo_path()
 
-        if os.path.isdir(path) and is_dir_greater_than(path, 1024):  # must be some weird remnants if smaller than 1kb
+        if os.path.isdir(path) and is_dir_greater_than(path, 1024) and not force_reclone:  # must be some weird remnants if smaller than 1kb
             try:
-                print("Found local copy of repo...")
                 repo = git.Repo(path)
-                print("Loaded local copy of repo...")
                 return repo
             except Exception as e:
-                print("Loading repo failed. Deleting directory and cloning again...")
                 print(e)
-
                 if os.name == "nt":
                     # on windows add ? to prevent too long path length only on windows...
                     shutil.rmtree(r"\\?\ ".strip() + str(path))

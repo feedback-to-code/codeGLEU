@@ -3,8 +3,10 @@ import json
 import os
 import random
 import threading
+import time
 from multiprocessing import Pool
 from pathlib import Path
+from typing import Any
 
 import black
 import matplotlib.pyplot as plt
@@ -25,6 +27,11 @@ import codegleu.codebleu.codebleu as codebleu
 import codegleu.codegleu as codegleu
 from codegleu.dataflow_match import try_remove_comments_and_docstrings
 from codegleu.utils import GenWrapper
+
+
+def dprint(*args, **kwargs):
+    if conf["verbose"]:
+        print(*args, **kwargs)
 
 
 def collect_instances():
@@ -130,7 +137,7 @@ def prepare_instances():
                         hypothesis_files_content = get_file_contents(relevant_files)
                     except Exception as e:
                         instance["exception"] = str(e)
-                        print(e)
+                        # print(e)
                     finally:
                         instance["source_files_content"] = source_files_content
                         instance["reference_files_content"] = reference_files_content
@@ -213,13 +220,18 @@ def score_instances():
 
             def worker():
                 while True:
+                    s = time.time()
                     with input_lock:
                         instance = next(genwrap, None)
                     if instance is None:
                         break
+                    dprint(f"acquired instance for {instance['instance_id']} in {time.time() - s}s")
+                    s = time.time()
                     reference = [clean_code(val) for _, val in sorted(instance["reference_files_content"].items())]
                     hypothesis = [clean_code(val) for _, val in sorted(instance["hypothesis_files_content"].items())]
                     source = [clean_code(val) for _, val in sorted(instance["source_files_content"].items())]
+                    dprint(f"cleaned code for {instance['instance_id']} in {time.time() - s}s")
+                    s = time.time()
                     instance["codebleu"] = codebleu.calc_codebleu(references=reference, predictions=hypothesis, lang="python")
                     instance["bleu"] = instance["codebleu"]["ngram_match_score"]
                     if "intermediates" not in instance or not instance["intermediates"]:
@@ -244,11 +256,12 @@ def score_instances():
                             intermediates=instance["intermediates"],
                             n_weights=conf["n_weights"],
                         )
+                    dprint(f"calculated scores for {instance['instance_id']} in {time.time() - s}s")
                     with output_lock:
                         pbar.update(1)
                         output.write(json.dumps(instance | {"intermediates": intermediates}) + "\n")
 
-            # threads = [threading.Thread(target=worker) for _ in range(0, 4)]
+            # threads = [threading.Thread(target=worker) for _ in range(0, 2)]
             # for thread in threads:
             #     thread.start()
             # for thread in threads:
@@ -271,7 +284,11 @@ def recalc(instance):
     filelen = 0
     patchlen = 0
     for patchedFile in unidiff.PatchSet(instance["patch"]):
-        hpaths = {"/".join(p.split("\\")[4:]): f for p, f in instance["hypothesis_files_content"].items()}
+        hpaths: dict[str, Any] = instance["hypothesis_files_content"]
+        if list(hpaths.keys())[0].split("\\")[0] == "experiments":
+            hpaths = {"/".join(p.split("\\")[4:]): f for p, f in hpaths.items()}
+        if list(hpaths.keys())[0].split("/")[0] == "experiments":
+            hpaths = {"/".join(p.split("/")[4:]): f for p, f in hpaths.items()}
         if patchedFile.path in hpaths:
             filelen += len(hpaths[patchedFile.path])
             patchlen += len(str(patchedFile))
@@ -283,10 +300,11 @@ conf = {
     "instances_dir": "./data/instances",
     "experiments_dir": "./experiments",
     "trim": -1,  # size to trim dataset to after filtering
-    "model": "20240402_sweagent_gpt4",
+    "model": "20240615_appmap-navie_gpt4o",
     "codegleu_penalty": (0.25, 0.25, 0.25, 0.25),
     "weights": (1,) * 4,
     "n_weights": (0.25,) * 4,
+    "verbose": False,
 }
 conf["model_path"] = f"./data/models/{conf['model']}"
 conf["preds_loc"] = f"{conf['model_path']}/all_preds.jsonl"
@@ -301,7 +319,7 @@ def main():
     os.environ["WANDB_SILENT"] = "true"
     wandb.login()
     wandb.init(project="codegleu", config=conf)
-    collect_instances()
+    # collect_instances()
     prepare_instances()
     snippet_instances()
     score_instances()
@@ -384,6 +402,8 @@ def main():
                 print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ")
                 wandb.log({f"mvp_{group}_{score}_corr": pr[0], f"mvp_{group}_{score}_p": pr[1]})
     data = [s["codegleu"] | {"group": "passed" if r else "failed"} for s, r in zip(toscore, resornot)]
+    if not os.path.exists(conf["figs_loc"]):
+        os.mkdir(conf["figs_loc"])
     fig, axs = plt.subplots(ncols=5, figsize=(20, 5))
     for i, k in enumerate(toscore[0]["codegleu"]):
         sns.histplot(x=k, hue="group", data=pd.DataFrame(data), palette={"passed": "green", "failed": "red"}, binwidth=0.02, ax=axs[i])
