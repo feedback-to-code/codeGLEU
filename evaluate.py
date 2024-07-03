@@ -21,13 +21,13 @@ import wandb
 from generate_snippets import generate_snippets
 from git_utils import GitRepo
 from scipy.stats import pearsonr
-from secret_secrets import GIT_TOKEN
+from secret_secrets import GITHUB_TOKENS
 
 import codegleu.codebleu.codebleu as codebleu
 import codegleu.codegleu as codegleu
 from codegleu.dataflow_match import try_remove_comments_and_docstrings
 from codegleu.utils import GenWrapper
-
+from collect import tasks_for_repo
 
 def dprint(*args, **kwargs):
     if conf["verbose"]:
@@ -35,31 +35,41 @@ def dprint(*args, **kwargs):
 
 
 def collect_instances():
-    hypotheses = {}
-    with open(conf["preds_loc"]) as fp:
-        for line in fp:
-            prediction = json.loads(line)
-            hypotheses[prediction["instance_id"]] = prediction
-
-    pred_iids = set()
-    for pred in hypotheses:
-        pred_iids.add(pred)
-
-    inst_iids = set()
-    instances_by_repo: dict[str, list[dict]] = {}
+    invalid_loc = conf["data_dir"] + "/invalid_instances.jsonl"
+    collected_iids = set()
     for file in os.listdir(conf["instances_dir"]):
         with open(f"{conf['instances_dir']}/{file}") as fp:
             for line in fp:
-                instance = json.loads(line)
-                if instance["repo"] not in instances_by_repo:
-                    instances_by_repo[instance["repo"]] = []
-                instances_by_repo[instance["repo"]] += [instance]
-                inst_iids.add(instance["instance_id"])
+                collected_iids.add(json.loads(line)["instance_id"])
 
-    # data for all pred_iids should be in data folder
-    missing = pred_iids - inst_iids
-    assert not missing
+    with open(invalid_loc, mode="r+") as invalid:
+        invalid_iids = [iid.removesuffix("\n") for iid in invalid.readlines()]
+        collected_iids.update(invalid_iids)
 
+    missing_by_repo: dict[str, list[dict]] = {}
+    with open(conf["preds_loc"], mode="r+") as fp:
+        for line in fp:
+            iid = json.loads(line)["instance_id"]
+            rm = re.match(r"(.*?)__(.*?)-([0-9]+)", iid)
+            repo = rm.group(1) + "/" + rm.group(2)
+            if iid not in collected_iids:
+                if repo not in missing_by_repo:
+                    missing_by_repo[repo] = []
+                missing_by_repo[repo].append(rm.group(3))
+
+    if not missing_by_repo:
+        print("Already done collecting files")
+        return
+
+    with open(invalid_loc, mode="a+") as invalid:
+        for repo in missing_by_repo:
+            with open(conf["instances_dir"] + f"/{repo.split('/')[1]}-task-instances.jsonl", mode="a+") as output:
+                for task in tasks_for_repo(repo, missing_by_repo[repo], GITHUB_TOKENS):
+                    if task["valid"]:
+                        output.write(json.dumps(task) + "\n")
+                    else:
+                        invalid.write(task["instance_id"].replace("/", "__") + "\n")
+                
 
 def prepare_instances():
     inst_iids = set()
@@ -297,7 +307,7 @@ def recalc(instance):
 
 
 conf = {
-    "instances_dir": "./data/instances",
+    "data_dir": "./data",
     "experiments_dir": "./experiments",
     "trim": -1,  # size to trim dataset to after filtering
     "model": "20240615_appmap-navie_gpt4o",
@@ -306,7 +316,8 @@ conf = {
     "n_weights": (0.25,) * 4,
     "verbose": False,
 }
-conf["model_path"] = f"./data/models/{conf['model']}"
+conf["instances_dir"] = f"{conf['data_dir']}/instances"
+conf["model_path"] = f"{conf['data_dir']}/models/{conf['model']}"
 conf["preds_loc"] = f"{conf['model_path']}/all_preds.jsonl"
 conf["results_loc"] = f"{conf['model_path']}/results/results.json"
 conf["preprocessed_loc"] = f"{conf['model_path']}/preprocessed_instances.jsonl"
@@ -319,7 +330,7 @@ def main():
     os.environ["WANDB_SILENT"] = "true"
     wandb.login()
     wandb.init(project="codegleu", config=conf)
-    # collect_instances()
+    collect_instances()
     prepare_instances()
     snippet_instances()
     score_instances()
