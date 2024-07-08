@@ -18,3 +18,5 @@ insert spaces around parentheses
 running average over references
 compare diffs
 dataflows: only normalize within diffs
+
+NORMALIZE DATAFLOWS RELATIVE TO ORIGIN

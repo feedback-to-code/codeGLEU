@@ -1,3 +1,3 @@
-from .codegleu import AVAILABLE_LANGS, calc_codegleu
+from .diffsim import AVAILABLE_LANGS, calc_diffsim
 
-__all__ = ["calc_codegleu", "AVAILABLE_LANGS"]
+__all__ = ["calc_diffsim", "AVAILABLE_LANGS"]

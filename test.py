@@ -2,7 +2,7 @@ import json
 import os
 
 import codegleu.codebleu.codebleu as codebleu
-import codegleu.codegleu as codegleu
+import codegleu.diffsim as diffsim
 
 
 def pad(s, ln, pos: str):
@@ -35,11 +35,11 @@ hypotheses = [hypo for hypo in open(dir + HYPOTHESES).readlines()]
 n_weights = (1 / NUMGRAM,) * NUMGRAM
 
 runs: list[dict] = []
-runs.append({"title": "total"} | codegleu.calc_codegleu(sources, references, hypotheses, "java", weights=n_weights))
+runs.append({"title": "total"} | diffsim.calc_diffsim(sources, references, hypotheses, "java", weights=n_weights))
 titles = ["exactmatch", "sensible", "sensible 2", "repeat, wrong syntax", "repeat, wrong ngrams", "complete failure"]
 for index, (source, reference, hypothesis) in enumerate(zip(sources, references, hypotheses)):
     title = {"title": titles[index] if index < len(titles) else f"row {index+1}"}
-    runs.append(title | codegleu.calc_codegleu([source], [reference], [hypothesis], "java", weights=n_weights))
+    runs.append(title | diffsim.calc_diffsim([source], [reference], [hypothesis], "java", weights=n_weights))
 
 print("GLEU+")
 cols = list(runs[0].keys())
@@ -51,6 +51,6 @@ print(" | ".join([pad(x, maxlen, "m") for x in cols]))
 for run in runs:
     print(" | ".join([pad(str(run.get(x, None)), maxlen, "r") for x in cols]))
 
-rets = codegleu.calc_codegleu(sources, references, hypotheses, "java", weights=n_weights, ret_intermediates=True, penalty=(0, 0, 0, 0))
+rets = diffsim.calc_diffsim(sources, references, hypotheses, "java", weights=n_weights, ret_intermediates=True, penalty=(0, 0, 0, 0))
 rets2 = codebleu.calc_codebleu(references, hypotheses, "java")
 pass

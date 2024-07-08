@@ -10,7 +10,7 @@ from .utils import AVAILABLE_LANGS, get_tree_sitter_language
 PACKAGE_DIR = Path(__file__).parent
 
 
-def calc_codegleu(
+def calc_diffsim(
     sources: List[str],
     references: Union[List[str], List[List[str]]],
     hypotheses: List[str],

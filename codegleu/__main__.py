@@ -6,7 +6,7 @@ import argparse
 from pathlib import Path
 from typing import List, Tuple
 
-from . import calc_codegleu
+from . import calc_diffsim
 
 PACKAGE_DIR = Path(__file__).parent
 
@@ -33,7 +33,7 @@ def main(
         references.append(ref_for_instance)
     assert len(references) * len(references[0]) == len(pre_references) * len(hypotheses), "References must be converted from column-wise to row-wise"
 
-    code_gleu_score = calc_codegleu(
+    code_gleu_score = calc_diffsim(
         sources,
         references,
         hypotheses,

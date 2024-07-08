@@ -1,5 +1,5 @@
 import codegleu.codebleu.codebleu as codebleu
-import codegleu.codegleu as codegleu
+import codegleu.diffsim as diffsim
 
 source = """def get_file_content ( self , file_path : Path ) -> str :\n	path = self.get_repo_path() / file_path\n	with open(path, "r") as f:\n		return f.read()"""
 hypothesis = source
@@ -11,6 +11,6 @@ reference = """def get_file_content ( self , file_path : Path ) -> str :\n	repo_
 hypothesis = """def get_file_content ( self , file_path : Path ) -> str :\n	path = self.get_repo_path() / file_path.lstrip( "\\" ).lstrip( "/" )\n	with open(path, "r") as f:\n		return f.read()"""
 
 print(codebleu.calc_codebleu(references=[reference], predictions=[hypothesis], lang="python"))
-print(codegleu.calc_codegleu(sources=[source], references=[reference], hypotheses=[hypothesis], lang="python", penalty=(0, 0, 0, 0)))
+print(diffsim.calc_diffsim(sources=[source], references=[reference], hypotheses=[hypothesis], lang="python", penalty=(0, 0, 0, 0)))
 
 pass

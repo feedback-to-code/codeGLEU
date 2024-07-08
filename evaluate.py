@@ -24,7 +24,7 @@ from scipy.stats import pearsonr
 from secret_secrets import GITHUB_TOKENS
 
 import codegleu.codebleu.codebleu as codebleu
-import codegleu.codegleu as codegleu
+import codegleu.diffsim as diffsim
 from codegleu.dataflow_match import try_remove_comments_and_docstrings
 from codegleu.utils import GenWrapper
 from collect import tasks_for_repo
@@ -245,7 +245,7 @@ def score_instances():
                     instance["codebleu"] = codebleu.calc_codebleu(references=reference, predictions=hypothesis, lang="python")
                     instance["bleu"] = instance["codebleu"]["ngram_match_score"]
                     if "intermediates" not in instance or not instance["intermediates"]:
-                        cg = codegleu.calc_codegleu(
+                        cg = diffsim.calc_diffsim(
                             sources=source,
                             references=reference,
                             hypotheses=hypothesis,
@@ -257,7 +257,7 @@ def score_instances():
                         intermediates = cg.pop("intermediates")
                         instance["codegleu"] = cg
                     else:
-                        instance["codegleu"] = codegleu.calc_codegleu(
+                        instance["codegleu"] = diffsim.calc_diffsim(
                             sources=source,
                             references=reference,
                             hypotheses=hypothesis,
@@ -281,7 +281,7 @@ def score_instances():
 
 def recalc(instance):
     # if not instance["resolved"]:
-    instance["codegleu"] = codegleu.calc_codegleu(
+    instance["codegleu"] = diffsim.calc_diffsim(
         [], [], [], lang="python", penalty=conf["codegleu_penalty"], intermediates=instance["intermediates"], weights=conf["weights"]
     )
     # source = [clean_code(val) for _, val in sorted(instance["source_files_content"].items())]

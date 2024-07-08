@@ -4,7 +4,7 @@ from typing import Any, List
 
 import pytest
 
-from codegleu.codegleu import AVAILABLE_LANGS, calc_codegleu
+from codegleu.diffsim import AVAILABLE_LANGS, calc_diffsim
 
 
 @pytest.mark.parametrize(
@@ -33,7 +33,7 @@ from codegleu.codegleu import AVAILABLE_LANGS, calc_codegleu
     ],
 )
 def test_simple_cases(sources: List[Any], predictions: List[Any], references: List[Any], codegleu: float) -> None:
-    result = calc_codegleu(sources, references, predictions, "python")
+    result = calc_diffsim(sources, references, predictions, "python")
     logging.debug(result)
     assert result["codegleu"] == pytest.approx(codegleu, 0.01)
 
@@ -41,7 +41,7 @@ def test_simple_cases(sources: List[Any], predictions: List[Any], references: Li
 @pytest.mark.parametrize(["lang"], [(lang,) for lang in AVAILABLE_LANGS])
 def test_exact_match_works_for_all_langs(lang: str) -> None:
     source = predictions = references = ["some matching string a couple of times"]
-    assert calc_codegleu(source, references, predictions, lang)["codegleu"] == 1.0
+    assert calc_diffsim(source, references, predictions, lang)["codegleu"] == 1.0
 
 
 @pytest.mark.parametrize(
@@ -100,19 +100,19 @@ def test_exact_match_works_for_all_langs(lang: str) -> None:
     ],
 )
 def test_simple_cases_work_for_all_langs(lang: str, sources: list[Any], predictions: List[Any], references: List[Any]) -> None:
-    result = calc_codegleu(sources, references, predictions, lang)
+    result = calc_diffsim(sources, references, predictions, lang)
     logging.debug(result)
     assert result["codegleu"] == pytest.approx(0.55, 0.1)
 
 
 def test_error_when_lang_not_supported() -> None:
     with pytest.raises(AssertionError):
-        calc_codegleu(["def foo : pass"], ["def foo : pass"], ["def bar : pass"], "not_supported_lang")
+        calc_diffsim(["def foo : pass"], ["def foo : pass"], ["def bar : pass"], "not_supported_lang")
 
 
 def test_error_when_input_length_mismatch() -> None:
     with pytest.raises(AssertionError):
-        calc_codegleu(["def foo : pass"], ["def foo : pass"], ["def bar : pass", "def buz : pass"], "python")
+        calc_diffsim(["def foo : pass"], ["def foo : pass"], ["def bar : pass", "def buz : pass"], "python")
 
 
 @pytest.mark.parametrize(
@@ -125,7 +125,7 @@ def test_error_when_input_length_mismatch() -> None:
     ],
 )
 def test_input_variants(sources: List[Any], predictions: List[Any], references: List[Any], codegleu: float) -> None:
-    assert calc_codegleu(sources, references, predictions, "python")["codegleu"] == pytest.approx(codegleu, 0.01)
+    assert calc_diffsim(sources, references, predictions, "python")["codegleu"] == pytest.approx(codegleu, 0.01)
 
 
 # TODO: fix this test
@@ -187,7 +187,7 @@ def test_finite_processing_time_in_bug_testcase() -> None:
     )
 
     # just test finite processing time
-    calc_codegleu([dummy_source], [dummy_true_code], [generated_code], "python")
+    calc_diffsim([dummy_source], [dummy_true_code], [generated_code], "python")
 
 
 # TODO: add tests with direct comparison with XLCoST and CodeXGlue results
