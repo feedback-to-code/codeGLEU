@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional, Union
 from codegleu.codegleu import dataflow_match, ngram_match, syntax_match
 from codegleu.utils import AVAILABLE_LANGS, get_tree_sitter_language
 
-PACKAGE_DIR = Path(__file__).parent
+PACKAGE_DIR = Path(__file__).parent.parent
 
 
 def calc_codegleu(

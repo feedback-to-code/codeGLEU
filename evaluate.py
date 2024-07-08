@@ -24,6 +24,7 @@ from scipy.stats import pearsonr
 from secret_secrets import GITHUB_TOKENS
 
 import codegleu.codebleu.codebleu as codebleu
+import codegleu.codegleu.codegleu as codegleu
 import codegleu.diffsim as diffsim
 from codegleu.dataflow_match import try_remove_comments_and_docstrings
 from codegleu.utils import GenWrapper
@@ -250,22 +251,23 @@ def score_instances():
                             references=reference,
                             hypotheses=hypothesis,
                             lang="python",
-                            penalty=conf["codegleu_penalty"],
+                            penalty=conf["diffsimpenalty"],
                             ret_intermediates=True,
                             n_weights=conf["n_weights"],
                         )
                         intermediates = cg.pop("intermediates")
-                        instance["codegleu"] = cg
+                        instance["diffsim"] = cg
                     else:
-                        instance["codegleu"] = diffsim.calc_diffsim(
+                        instance["diffsim"] = diffsim.calc_diffsim(
                             sources=source,
                             references=reference,
                             hypotheses=hypothesis,
                             lang="python",
-                            penalty=conf["codegleu_penalty"],
+                            penalty=conf["diffsimpenalty"],
                             intermediates=instance["intermediates"],
                             n_weights=conf["n_weights"],
                         )
+                    instance["codegleu"] = codegleu.calc_codegleu([], [], [], lang="python", penalty=conf["codegleupenalty"], intermediates=intermediates, weights=conf["weights"])
                     dprint(f"calculated scores for {instance['instance_id']} in {time.time() - s}s")
                     with output_lock:
                         pbar.update(1)
@@ -280,17 +282,16 @@ def score_instances():
 
 
 def recalc(instance):
-    # if not instance["resolved"]:
-    instance["codegleu"] = diffsim.calc_diffsim(
-        [], [], [], lang="python", penalty=conf["codegleu_penalty"], intermediates=instance["intermediates"], weights=conf["weights"]
-    )
     # source = [clean_code(val) for _, val in sorted(instance["source_files_content"].items())]
     # reference = [clean_code(val) for _, val in sorted(instance["reference_files_content"].items())]
     # hypothesis = [clean_code(val) for _, val in sorted(instance["hypothesis_files_content"].items())]
-    # instance["codegleu"] = codegleu.calc_codegleu(source, reference, hypothesis, lang="python", penalty=conf['codegleu_penalty'], n_weights=conf['n_weights'], intermediates=instance["intermediates"])
+    # instance["diffsim"] = codegleu.calc_codegleu(source, reference, hypothesis, lang="python", penalty=conf['penalty'], n_weights=conf['n_weights'], intermediates=instance["intermediates"])
     # instance["codebleu"] = codebleu.calc_codebleu(reference, hypothesis, lang="python")
-    # if instance["codebleu"]["syntax_match_score"] != instance["codegleu"]["syntax_match_score"]:
+    # if instance["codebleu"]["syntax_match_score"] != instance["diffsim"]["syntax_match_score"]:
     #     pass
+    # if not instance["resolved"]:
+    instance["diffsim"] = diffsim.calc_diffsim([], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=instance["intermediates"], weights=conf["weights"])
+    instance["codegleu"] = codegleu.calc_codegleu([], [], [], lang="python", penalty=conf["codegleupenalty"], intermediates=instance["intermediates"], weights=conf["weights"])
     filelen = 0
     patchlen = 0
     for patchedFile in unidiff.PatchSet(instance["patch"]):
@@ -303,15 +304,16 @@ def recalc(instance):
             filelen += len(hpaths[patchedFile.path])
             patchlen += len(str(patchedFile))
     instance["patchpercentage"] = 1 - (patchlen / filelen)
-    return {k: instance[k] for k in ["codebleu", "codegleu", "bleu", "instance_id", "patchpercentage"]}
+    return {k: instance[k] for k in ["codebleu", "codegleu", "diffsim", "bleu", "instance_id", "patchpercentage"]}
 
 
 conf = {
     "data_dir": "./data",
     "experiments_dir": "./experiments",
     "trim": -1,  # size to trim dataset to after filtering
-    "model": "20240615_appmap-navie_gpt4o",
-    "codegleu_penalty": (0.25, 0.25, 0.25, 0.25),
+    "model": "20240402_sweagent_gpt4",
+    "diffsimpenalty": (0.25, 0.25, 0.25, 0.25),
+    "codegleupenalty": (1, 1, 1, 1),
     "weights": (1,) * 4,
     "n_weights": (0.25,) * 4,
     "verbose": False,
@@ -381,11 +383,11 @@ def main():
 
     res_bleu = sum([i["bleu"] for i in resolved]) / len(resolved)
     res_codebleu = sum([i["codebleu"]["codebleu"] for i in resolved]) / len(resolved)
-    res_codegleu = sum([i["codegleu"]["codegleu"] for i in resolved]) / len(resolved)
+    res_codegleu = sum([i["diffsim"]["diffsim"] for i in resolved]) / len(resolved)
 
     nres_bleu = sum([i["bleu"] for i in notresolved]) / len(notresolved)
     nres_codebleu = sum([i["codebleu"]["codebleu"] for i in notresolved]) / len(notresolved)
-    nres_codegleu = sum([i["codegleu"]["codegleu"] for i in notresolved]) / len(notresolved)
+    nres_codegleu = sum([i["diffsim"]["diffsim"] for i in notresolved]) / len(notresolved)
 
     toscore = resolved + notresolved
     resornot = [1] * len(resolved) + [0] * len(notresolved)
@@ -400,7 +402,7 @@ def main():
     padlen = 26
     print(" " * 32 + "metric vs resolved          " + "metric vs patchpercent")
     print(" " * 32 + "Correlation   P-Value       " + "Correlation   P-Value")
-    for group in ["bleu", "codebleu", "codegleu"]:
+    for group in ["bleu", "codebleu", "codegleu", "diffsim"]:
         print(f"Performing Ablation Study for {group}")
         scores = toscore[0][group]
         if isinstance(scores, dict):
@@ -412,15 +414,15 @@ def main():
                 pr = pearsonr([i[group][score] for i in toscore], [i["patchpercentage"] for i in toscore])
                 print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ")
                 wandb.log({f"mvp_{group}_{score}_corr": pr[0], f"mvp_{group}_{score}_p": pr[1]})
-    data = [s["codegleu"] | {"group": "passed" if r else "failed"} for s, r in zip(toscore, resornot)]
+    data = [s["diffsim"] | {"group": "passed" if r else "failed"} for s, r in zip(toscore, resornot)]
     if not os.path.exists(conf["figs_loc"]):
         os.mkdir(conf["figs_loc"])
     fig, axs = plt.subplots(ncols=5, figsize=(20, 5))
-    for i, k in enumerate(toscore[0]["codegleu"]):
+    for i, k in enumerate(toscore[0]["diffsim"]):
         sns.histplot(x=k, hue="group", data=pd.DataFrame(data), palette={"passed": "green", "failed": "red"}, binwidth=0.02, ax=axs[i])
-    fig.savefig(f"{conf['figs_loc']}/codegleu_scores.png")
+    fig.savefig(f"{conf['figs_loc']}/diffsim_scores.png")
     plt.close()
-    sns.regplot(x=[i["codegleu"]["codegleu"] for i in toscore], y=resornot)
+    sns.regplot(x=[i["diffsim"]["diffsim"] for i in toscore], y=resornot)
     plt.savefig(f"{conf['figs_loc']}/versus.png")
     plt.close()
     wandb.finish()

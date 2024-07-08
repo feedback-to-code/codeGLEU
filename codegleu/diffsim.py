@@ -74,9 +74,9 @@ def calc_diffsim(
     zeroed_scores = [0 if score == -1 else score for score in scores]
     usablescores = [(s, w) for (s, w) in zip(scores, weights) if s != -1]
     uweighttotal = sum([w for (s, w) in usablescores])
-    code_gleu_score = sum([s * w / (uweighttotal or 1) for (s, w) in usablescores])
+    diffsim_score = sum([s * w / (uweighttotal or 1) for (s, w) in usablescores])
     return {
-        "codegleu": code_gleu_score,
+        "diffsim": diffsim_score,
         "ngram_match_score": zeroed_scores[0],
         "weighted_ngram_match_score": zeroed_scores[1],
         "syntax_match_score": zeroed_scores[2],

@@ -121,13 +121,13 @@ def corpus_gleu_score(
 
                 weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
 
-                source_subexp_diff = counter_diff(source_interm, reference_interm)
-                matching_subexp = weighted_count(hypothesis_interm & reference_interm)
-                penalty_subexp = weighted_count(hypothesis_interm & source_subexp_diff)
+                source_subexp_diff = counter_diff(source_interm_n, reference_interm_n)
+                matching_subexp = weighted_count(hypothesis_interm_n & reference_interm_n)
+                penalty_subexp = weighted_count(hypothesis_interm_n & source_subexp_diff)
                 score = matching_subexp - penalty * penalty_subexp
 
                 p_n[n][0] += max(0, score)
-                p_n[n][1] += max(0, weighted_count(reference_interm))
+                p_n[n][1] += max(0, weighted_count(reference_interm_n))
 
     if p_n[0][1] == 0:
         # logging.warning(
