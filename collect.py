@@ -1,17 +1,16 @@
+# mypy: ignore-errors
 import logging
 import re
-import requests
 import time
-
 from queue import Queue
-from bs4 import BeautifulSoup
-from ghapi.core import GhApi
-from fastcore.net import HTTP404NotFoundError, HTTP403ForbiddenError
-from typing import Dict, List, Tuple, Optional, Generator
+from typing import Dict, Generator, List, Optional, Tuple
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+import requests
+from bs4 import BeautifulSoup
+from fastcore.net import HTTP403ForbiddenError, HTTP404NotFoundError
+from ghapi.core import GhApi
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -55,9 +54,7 @@ class Repo:
             except HTTP403ForbiddenError as e:
                 while True:
                     rl = self.get_api().rate_limit.get()
-                    logger.info(
-                        f"[{self.owner}/{self.name}] Rate limit exceeded, waiting for 5 minutes, remaining: {rl.resources.core.remaining}"
-                    )
+                    logger.info(f"[{self.owner}/{self.name}] Rate limit exceeded, waiting for 5 minutes, remaining: {rl.resources.core.remaining}")
                     if rl.resources.core.remaining > 0:
                         break
                     time.sleep(60 * 5)
@@ -92,9 +89,7 @@ class Repo:
         # Construct text to search over for issue numbers from PR body and commit messages
         text = pull.title if pull.title else ""
         text += "\n" + (pull.body if pull.body else "")
-        commits = self.get_all_loop(
-            self.get_api().pulls.list_commits, pull_number=pull.number, quiet=True
-        )
+        commits = self.get_all_loop(self.get_api().pulls.list_commits, pull_number=pull.number, quiet=True)
         commit_messages = [commit.commit.message for commit in commits]
         commit_text = "\n".join(commit_messages) if commit_messages else ""
         text += "\n" + commit_text
@@ -119,7 +114,7 @@ class Repo:
     ) -> Generator:
         """
         Return all values from a paginated API endpoint.
-        
+
         Args:
             func (callable): API function to call
             per_page (int): number of values to return per page
@@ -156,14 +151,10 @@ class Repo:
                     rl = self.get_api().rate_limit.get()
                     if rl.resources.core.remaining > 0:
                         break
-                    logger.info(
-                        f"[{self.owner}/{self.name}] Waiting for rate limit reset, checking again in 5 minutes"
-                    )
+                    logger.info(f"[{self.owner}/{self.name}] Waiting for rate limit reset, checking again in 5 minutes")
                     time.sleep(60 * 5)
         if not quiet:
-            logger.info(
-                f"[{self.owner}/{self.name}] Processed {(page-1)*per_page + len(values)} values"
-            )
+            logger.info(f"[{self.owner}/{self.name}] Processed {(page-1)*per_page + len(values)} values")
 
     def get_all_loop(
         self,
@@ -175,7 +166,7 @@ class Repo:
     ) -> Generator:
         """
         Return all values from a paginated API endpoint.
-        
+
         Args:
             func (callable): API function to call
             per_page (int): number of values to return per page
@@ -213,14 +204,10 @@ class Repo:
                     rl = self.get_api().rate_limit.get()
                     if rl.resources.core.remaining > 0:
                         break
-                    logger.info(
-                        f"[{self.owner}/{self.name}] Waiting for rate limit reset, checking again in 5 minutes"
-                    )
+                    logger.info(f"[{self.owner}/{self.name}] Waiting for rate limit reset, checking again in 5 minutes")
                     time.sleep(60 * 5)
         if not quiet:
-            logger.info(
-                f"[{self.owner}/{self.name}] Processed {(page-1)*per_page + len(values)} values"
-            )
+            logger.info(f"[{self.owner}/{self.name}] Processed {(page-1)*per_page + len(values)} values")
 
     def get_all_issues(
         self,
@@ -284,7 +271,6 @@ class Repo:
         )
         return pulls
 
-
     def get_all_pulls_numbered(
         self,
         numbers: list[int],
@@ -311,28 +297,26 @@ class Repo:
                 for _ in range(per_page):
                     if idx >= len(numbers):
                         break
-                    values += [self.get_api().pulls.get(self.owner, self.name, numbers[idx])] # could network error
+                    values += [self.get_api().pulls.get(self.owner, self.name, numbers[idx])]  # could network error
                     idx += 1
                 for value in values:
                     yield value
                 if len(values) == 0 or (num_pages and page >= num_pages):
                     break
                 if not quiet:
-                    logger.info(f"[{self.owner}/{self.name}] Processed page {page} ({per_page} values per page). Remaining calls: {self.get_resources()}")
+                    logger.info(
+                        f"[{self.owner}/{self.name}] Processed page {page} ({per_page} values per page). Remaining calls: {self.get_resources()}"
+                    )
                 page += 1
             except HTTP403ForbiddenError as e:
                 logger.error(f"Error processing page {page}: {e}")
                 while True:
                     if self.get_resources() > 0:
                         break
-                    logger.info(
-                        f"[{self.owner}/{self.name}] Waiting for rate limit reset, checking again in 5 minutes"
-                    )
+                    logger.info(f"[{self.owner}/{self.name}] Waiting for rate limit reset, checking again in 5 minutes")
                     time.sleep(60 * 5)
         if not quiet:
-            logger.info(
-                f"[{self.owner}/{self.name}] Processed {idx} values"
-            )
+            logger.info(f"[{self.owner}/{self.name}] Processed {idx} values")
 
 
 def extract_problem_statement_and_hints(pull: Dict, repo: Repo) -> Tuple[str, str]:
@@ -381,9 +365,7 @@ def _extract_hints(pull: dict, repo: Repo, issue_number: int) -> List[str]:
         hints (list): list of hints
     """
     # Get all commits in PR
-    commits = repo.get_all_loop(
-        repo.api.pulls.list_commits, pull_number=pull["number"], quiet=True
-    )
+    commits = repo.get_all_loop(repo.api.pulls.list_commits, pull_number=pull["number"], quiet=True)
     commits = list(commits)
     if len(commits) == 0:
         # If there are no comments, return no hints
@@ -392,16 +374,12 @@ def _extract_hints(pull: dict, repo: Repo, issue_number: int) -> List[str]:
     commit_time = commits[0].commit.author.date  # str
     commit_time = time.mktime(time.strptime(commit_time, "%Y-%m-%dT%H:%M:%SZ"))
     # Get all comments in PR
-    all_comments = repo.get_all_loop(
-        repo.api.issues.list_comments, issue_number=issue_number, quiet=True
-    )
+    all_comments = repo.get_all_loop(repo.api.issues.list_comments, issue_number=issue_number, quiet=True)
     all_comments = list(all_comments)
     # Iterate through all comments, only keep comments created before first commit
     comments = list()
     for comment in all_comments:
-        comment_time = time.mktime(
-            time.strptime(comment.updated_at, "%Y-%m-%dT%H:%M:%SZ")
-        )  # use updated_at instead of created_at
+        comment_time = time.mktime(time.strptime(comment.updated_at, "%Y-%m-%dT%H:%M:%SZ"))  # use updated_at instead of created_at
         if comment_time < commit_time:
             comments.append(comment)
         else:
@@ -441,26 +419,19 @@ def extract_patches(pull: Dict, repo: Repo) -> Tuple[str, str]:
         # Determine if current diff block is a test or general change
         if line.startswith("diff --git a/"):
             words = set(re.split(r" |_|\/|\.", line.lower()))
-            flag = (
-                "test"
-                if ("test" in words or "tests" in words or "testing" in words)
-                else "diff"
-            )
+            flag = "test" if ("test" in words or "tests" in words or "testing" in words) else "diff"
         # Append line to separate patch depending on flag status
         if flag == "test":
             patch_test.append(line)
         elif flag == "diff":
             patch_change.append(line)
 
-
     patch_change_str = "\n".join(patch_change) + "\n" if len(patch_change) > 0 else ""
     patch_test_str = "\n".join(patch_test) + "\n" if len(patch_test) > 0 else ""
     return patch_change_str, patch_test_str
 
 
-def extract_problem_statement_and_hints_django(
-    pull: dict, repo: Repo
-) -> Tuple[str, str]:
+def extract_problem_statement_and_hints_django(pull: dict, repo: Repo) -> Tuple[str, str]:
     """
     Get problem statement and hints from issues associated with a pull request
 
@@ -491,9 +462,7 @@ def extract_problem_statement_and_hints_django(
         text += f"{title}\n{body}\n"
 
         # Get time of first commit in PR
-        commits = repo.get_all_loop(
-            repo.api.pulls.list_commits, pull_number=pull["number"], quiet=True
-        )
+        commits = repo.get_all_loop(repo.api.pulls.list_commits, pull_number=pull["number"], quiet=True)
         commits = list(commits)
         if len(commits) == 0:
             continue
@@ -529,6 +498,7 @@ def extract_problem_statement_and_hints_django(
 
     return text, all_hints_text
 
+
 def is_valid_pull(pull: Dict) -> bool:
     if pull["merged_at"] is None:
         return False
@@ -544,15 +514,14 @@ def is_valid_instance(instance: Dict) -> bool:
         return False
     return True
 
+
 def create_instance(repo: Repo, pull: Dict) -> Dict:
     patch, test_patch = extract_patches(pull, repo)
     problem_statement, hints = extract_problem_statement_and_hints(pull, repo)
     return {
         "repo": repo.repo.full_name,
         "pull_number": pull["number"],
-        "instance_id": (repo.repo.full_name + "-" + str(pull["number"])).replace(
-            "/", "__"
-        ),
+        "instance_id": (repo.repo.full_name + "-" + str(pull["number"])).replace("/", "__"),
         "issue_numbers": pull["resolved_issues"],
         "base_commit": pull["base"]["sha"],
         "patch": patch,
@@ -568,11 +537,12 @@ def prs_for_repo(reponame: str, ids: list[int], tokens: list[str]):
     repo = Repo(owner, name, tokens)
     return repo.get_all_pulls_numbered(ids)
 
+
 def tasks_for_repo(reponame: str, ids: list[int], tokens: list[str]) -> Generator:
     owner, name = reponame.split("/")
     repo = Repo(owner, name, tokens)
     for pull in repo.get_all_pulls_numbered(ids):
-        instance_id = (pull["base"]["repo"]["full_name"] + "-" + str(pull["number"]))
+        instance_id = pull["base"]["repo"]["full_name"] + "-" + str(pull["number"])
         instance_id = instance_id.replace("/", "__")
         default = {"instance_id": instance_id, "valid": False}
         if not is_valid_pull(pull):

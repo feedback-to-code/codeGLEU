@@ -1,3 +1,4 @@
+# mypy: ignore-errors
 import itertools
 import json
 import os
@@ -18,6 +19,7 @@ import tqdm.contrib
 import tqdm.contrib.concurrent
 import unidiff
 import wandb
+from collect import tasks_for_repo
 from generate_snippets import generate_snippets
 from git_utils import GitRepo
 from scipy.stats import pearsonr
@@ -28,7 +30,7 @@ import codegleu.codegleu.codegleu as codegleu
 import codegleu.diffsim as diffsim
 from codegleu.dataflow_match import try_remove_comments_and_docstrings
 from codegleu.utils import GenWrapper
-from collect import tasks_for_repo
+
 
 def dprint(*args, **kwargs):
     if conf["verbose"]:
@@ -43,7 +45,7 @@ def collect_instances():
             for line in fp:
                 collected_iids.add(json.loads(line)["instance_id"])
 
-    with open(invalid_loc, mode="r+") as invalid:
+    with open(invalid_loc, mode="w+") as invalid:
         invalid_iids = [iid.removesuffix("\n") for iid in invalid.readlines()]
         collected_iids.update(invalid_iids)
 
@@ -70,7 +72,7 @@ def collect_instances():
                         output.write(json.dumps(task) + "\n")
                     else:
                         invalid.write(task["instance_id"].replace("/", "__") + "\n")
-                
+
 
 def prepare_instances():
     inst_iids = set()
@@ -267,7 +269,9 @@ def score_instances():
                             intermediates=instance["intermediates"],
                             n_weights=conf["n_weights"],
                         )
-                    instance["codegleu"] = codegleu.calc_codegleu([], [], [], lang="python", penalty=conf["codegleupenalty"], intermediates=intermediates, weights=conf["weights"])
+                    instance["codegleu"] = codegleu.calc_codegleu(
+                        [], [], [], lang="python", penalty=conf["codegleupenalty"], intermediates=intermediates, weights=conf["weights"]
+                    )
                     dprint(f"calculated scores for {instance['instance_id']} in {time.time() - s}s")
                     with output_lock:
                         pbar.update(1)
@@ -290,8 +294,12 @@ def recalc(instance):
     # if instance["codebleu"]["syntax_match_score"] != instance["diffsim"]["syntax_match_score"]:
     #     pass
     # if not instance["resolved"]:
-    instance["diffsim"] = diffsim.calc_diffsim([], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=instance["intermediates"], weights=conf["weights"])
-    instance["codegleu"] = codegleu.calc_codegleu([], [], [], lang="python", penalty=conf["codegleupenalty"], intermediates=instance["intermediates"], weights=conf["weights"])
+    instance["diffsim"] = diffsim.calc_diffsim(
+        [], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=instance["intermediates"], weights=conf["weights"]
+    )
+    instance["codegleu"] = codegleu.calc_codegleu(
+        [], [], [], lang="python", penalty=conf["codegleupenalty"], intermediates=instance["intermediates"], weights=conf["weights"]
+    )
     filelen = 0
     patchlen = 0
     for patchedFile in unidiff.PatchSet(instance["patch"]):

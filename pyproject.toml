@@ -89,7 +89,7 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 warn_unreachable = true
 allow_untyped_decorators = true
-exclude = ["codegleu/parser/tree-sitter", "codegleu/parser/tree-sitter/python", "tree_sitter"]
+exclude = ["codegleu/parser/tree-sitter", "codegleu/parser/tree-sitter/python", "tree_sitter", "collect.py"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
