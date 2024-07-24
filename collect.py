@@ -1,9 +1,35 @@
 # mypy: ignore-errors
+#
+# This file is based on the princeton-nlp SWE-bench collection files.
+# As such, it falls under the following license:
+#
+# MIT License
+
+# Copyright (c) 2023 Carlos E Jimenez, John Yang, Alexander Wettig, Shunyu Yao, Kexin Pei, Ofir Press, Karthik R Narasimhan
+
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
 import logging
 import re
 import time
 from queue import Queue
-from typing import Dict, Generator, List, Optional, Tuple
+from typing import Dict, Generator, Iterable, List, Optional, Tuple
 
 import requests
 from bs4 import BeautifulSoup
@@ -102,6 +128,8 @@ class Repo:
             for word, issue_num in references.items():
                 if word.lower() in keywords:
                     resolved_issues.append(issue_num)
+        resolved_issues = list(set(resolved_issues))
+        resolved_issues = [i for i in resolved_issues if int(i)]
         return resolved_issues
 
     def get_all_gen(
@@ -274,7 +302,7 @@ class Repo:
     def get_all_pulls_numbered(
         self,
         numbers: list[int],
-        per_page: int = 5,
+        per_page: int = 25,
         num_pages: Optional[int] = None,
         quiet: str = False,
     ) -> Generator:
@@ -336,7 +364,7 @@ def extract_problem_statement_and_hints(pull: Dict, repo: Repo) -> Tuple[str, st
     all_hint_texts = list()
     for issue_number in pull["resolved_issues"]:
         issue = repo.call_api(
-            repo.api.issues.get,
+            repo.get_api().issues.get,
             owner=repo.owner,
             repo=repo.name,
             issue_number=issue_number,
@@ -365,7 +393,7 @@ def _extract_hints(pull: dict, repo: Repo, issue_number: int) -> List[str]:
         hints (list): list of hints
     """
     # Get all commits in PR
-    commits = repo.get_all_loop(repo.api.pulls.list_commits, pull_number=pull["number"], quiet=True)
+    commits = repo.get_all_loop(repo.get_api().pulls.list_commits, pull_number=pull["number"], quiet=True)
     commits = list(commits)
     if len(commits) == 0:
         # If there are no comments, return no hints
@@ -374,7 +402,7 @@ def _extract_hints(pull: dict, repo: Repo, issue_number: int) -> List[str]:
     commit_time = commits[0].commit.author.date  # str
     commit_time = time.mktime(time.strptime(commit_time, "%Y-%m-%dT%H:%M:%SZ"))
     # Get all comments in PR
-    all_comments = repo.get_all_loop(repo.api.issues.list_comments, issue_number=issue_number, quiet=True)
+    all_comments = repo.get_all_loop(repo.get_api().issues.list_comments, issue_number=issue_number, quiet=True)
     all_comments = list(all_comments)
     # Iterate through all comments, only keep comments created before first commit
     comments = list()
@@ -462,7 +490,7 @@ def extract_problem_statement_and_hints_django(pull: dict, repo: Repo) -> Tuple[
         text += f"{title}\n{body}\n"
 
         # Get time of first commit in PR
-        commits = repo.get_all_loop(repo.api.pulls.list_commits, pull_number=pull["number"], quiet=True)
+        commits = repo.get_all_loop(repo.get_api().pulls.list_commits, pull_number=pull["number"], quiet=True)
         commits = list(commits)
         if len(commits) == 0:
             continue
@@ -538,13 +566,14 @@ def prs_for_repo(reponame: str, ids: list[int], tokens: list[str]):
     return repo.get_all_pulls_numbered(ids)
 
 
-def tasks_for_repo(reponame: str, ids: list[int], tokens: list[str]) -> Generator:
+def tasks_for_repo(reponame: str, ids: Iterable[int], tokens: list[str]) -> Generator:
     owner, name = reponame.split("/")
     repo = Repo(owner, name, tokens)
-    for pull in repo.get_all_pulls_numbered(ids):
+    for pull in repo.get_all_pulls_numbered(list(ids)):
         instance_id = pull["base"]["repo"]["full_name"] + "-" + str(pull["number"])
         instance_id = instance_id.replace("/", "__")
         default = {"instance_id": instance_id, "valid": False}
+        pull["resolved_issues"] = repo.extract_resolved_issues(pull)
         if not is_valid_pull(pull):
             yield default
             continue

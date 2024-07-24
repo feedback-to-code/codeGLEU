@@ -121,10 +121,10 @@ def corpus_gleu_score(
 
                 weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
 
-                ref_added = reference_interm_n - (source_interm_n & reference_interm_n)
-                ref_removed = source_interm_n - (source_interm_n & reference_interm_n)
-                hyp_added = hypothesis_interm_n - (source_interm_n & hypothesis_interm_n)
-                hyp_removed = source_interm_n - (source_interm_n & hypothesis_interm_n)
+                ref_added = reference_interm_n - source_interm_n
+                ref_removed = source_interm_n - reference_interm_n
+                hyp_added = hypothesis_interm_n - source_interm_n
+                hyp_removed = source_interm_n - hypothesis_interm_n
                 correct_changes = weighted_count((ref_added & hyp_added) + (ref_removed & hyp_removed))
                 wrong_changes = weighted_count((hyp_added - ref_added) + (hyp_removed - ref_removed))
                 total_changes = weighted_count(ref_added + ref_removed)

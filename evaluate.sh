@@ -1,13 +1,12 @@
 #!/bin/sh
 #SBATCH -A herbrich-student
-#SBATCH --job-name=feedback2code
-#SBATCH --partition magic
+#SBATCH --job-name=codegleu
+#SBATCH --partition sorcery
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=10
+#SBATCH --cpus-per-task=5
 #SBATCH --mem=16G
 #SBATCH --gpus=0
-#SBATCH --time=9:0:0
+#SBATCH --time=8:0:0
 
-conda activate f2c
-python evaluate.py
+python /hpi/fs00/home/fritz.darchinger/codeGLEU/evaluate.py

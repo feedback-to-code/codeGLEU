@@ -5,6 +5,7 @@ import os
 import random
 import threading
 import time
+from collections import Counter
 from multiprocessing import Pool
 from pathlib import Path
 from typing import Any
@@ -32,34 +33,54 @@ from codegleu.dataflow_match import try_remove_comments_and_docstrings
 from codegleu.utils import GenWrapper
 
 
+class EvalError(Exception):
+    pass
+
+
 def dprint(*args, **kwargs):
     if conf["verbose"]:
         print(*args, **kwargs)
 
 
 def collect_instances():
+    global pred_instances
+    global valid_instances
+    global invalid_instances
+    global total_instances
     invalid_loc = conf["data_dir"] + "/invalid_instances.jsonl"
     collected_iids = set()
+    coll = []
     for file in os.listdir(conf["instances_dir"]):
         with open(f"{conf['instances_dir']}/{file}") as fp:
             for line in fp:
                 collected_iids.add(json.loads(line)["instance_id"])
+                coll.append(json.loads(line)["instance_id"])
+                valid_instances += 1
+                total_instances += 1
 
-    with open(invalid_loc, mode="w+") as invalid:
-        invalid_iids = [iid.removesuffix("\n") for iid in invalid.readlines()]
-        collected_iids.update(invalid_iids)
+    invalid_iids = []
+    if os.path.exists(invalid_loc):
+        with open(invalid_loc, mode="r+") as invalid:
+            invalid_iids = [iid.removesuffix("\n") for iid in invalid.readlines()]
+            invalid_instances += len(invalid_iids)
+            total_instances += len(invalid_iids)
+            collected_iids.update(invalid_iids)
 
-    missing_by_repo: dict[str, list[dict]] = {}
+    pred_iids = []
+    missing_by_repo: dict[str, set] = {}
     with open(conf["preds_loc"], mode="r+") as fp:
         for line in fp:
+            pred_instances += 1
             iid = json.loads(line)["instance_id"]
+            pred_iids += [iid]
             rm = re.match(r"(.*?)__(.*?)-([0-9]+)", iid)
             repo = rm.group(1) + "/" + rm.group(2)
             if iid not in collected_iids:
                 if repo not in missing_by_repo:
-                    missing_by_repo[repo] = []
-                missing_by_repo[repo].append(rm.group(3))
-
+                    missing_by_repo[repo] = set()
+                if rm.group(3) not in missing_by_repo[repo]:
+                    missing_by_repo[repo].add(rm.group(3))
+    coll = {k: v for k, v in Counter(coll).items() if v > 1}
     if not missing_by_repo:
         print("Already done collecting files")
         return
@@ -70,28 +91,51 @@ def collect_instances():
                 for task in tasks_for_repo(repo, missing_by_repo[repo], GITHUB_TOKENS):
                     if task["valid"]:
                         output.write(json.dumps(task) + "\n")
+                        output.flush()
+                        valid_instances += 1
                     else:
-                        invalid.write(task["instance_id"].replace("/", "__") + "\n")
+                        invalid.write(task["instance_id"] + "\n")
+                        invalid.flush()
+                        invalid_instances += 1
+                    total_instances += 1
+    print(
+        (f"pred_instances = {pred_instances}\n"),
+        (f"invalid_instances = {invalid_instances}\n"),
+        (f"valid_instances = {valid_instances}\n"),
+        (f"total_instances = {total_instances}\n"),
+    )
 
 
 def prepare_instances():
+    global no_comparable_files
+    global error_applying_patches
+    global prepared_file_contents
+    global total_prepared_file_contents
+
     inst_iids = set()
-    instances_by_repo: dict[str, list[dict]] = {}
+    instances_by_repo: dict[str, dict[str, dict]] = {}
     for file in os.listdir(conf["instances_dir"]):
         with open(f"{conf['instances_dir']}/{file}") as fp:
             for line in fp:
                 instance = json.loads(line)
-                if instance["repo"] not in instances_by_repo:
-                    instances_by_repo[instance["repo"]] = []
-                instances_by_repo[instance["repo"]] += [instance]
-                inst_iids.add(instance["instance_id"])
+                repo = instance["repo"]
+                iid = instance["instance_id"]
+                if repo not in instances_by_repo:
+                    instances_by_repo[repo] = {}
+                instances_by_repo[repo][iid] = instance
+                inst_iids.add(iid)
 
-    hypotheses = {}
+    hypotheses_by_repo: dict[str, list[dict]] = {}
     with open(conf["preds_loc"]) as fp:
         for line in fp:
             prediction = json.loads(line)
-            if prediction["instance_id"] in inst_iids:
-                hypotheses[prediction["instance_id"]] = prediction
+            iid = prediction["instance_id"]
+            rm = re.match(r"(.*?)__(.*?)-([0-9]+)", iid)
+            repo = rm.group(1) + "/" + rm.group(2)
+            if iid in inst_iids:
+                if repo not in hypotheses_by_repo:
+                    hypotheses_by_repo[repo] = []
+                hypotheses_by_repo[repo] += [prediction]
 
     known_iids = set()
     if not os.path.exists(conf["preprocessed_loc"]):
@@ -105,25 +149,28 @@ def prepare_instances():
         return
     print("Collecting files and applying patches")
     with open(conf["preprocessed_loc"], "a+") as output:
-        for reponame in instances_by_repo:
-            repoinstances = instances_by_repo[reponame]
-            repoinstances = [instance for instance in repoinstances if instance["instance_id"] not in known_iids]
-            if len(repoinstances) > 0:
+        for reponame in hypotheses_by_repo:
+            repo = GitRepo(reponame.split("/")[0], reponame.split("/")[1], conf["experiments_dir"])
+            repohypos = hypotheses_by_repo[reponame]
+            repohypos = [hypo for hypo in repohypos if hypo["instance_id"] not in known_iids]
+            if len(repohypos) > 0:
                 print(f"Collecting {len(instances_by_repo[reponame])} instances for repo {reponame}.")
-                print(f"Collecting {len(repoinstances)} instances not in output file.")
-                for instance in tqdm.tqdm(repoinstances):
+                print(f"Collecting {len(repohypos)} instances not in output file.")
+                for hypothesis in tqdm.tqdm(repohypos):
                     source_files_content = {}
                     reference_files_content = {}
                     hypothesis_files_content = {}
                     try:
-                        hypothesis = hypotheses[instance["instance_id"]]
-                        repo = GitRepo(reponame.split("/")[0], reponame.split("/")[1], conf["experiments_dir"])
+                        instance = instances_by_repo[reponame][hypothesis["instance_id"]]
 
                         reference_patch: str = instance["patch"]
-                        reference_files: set = repo.find_absolute_file_paths_from_patch(reference_patch)
                         hypothesis_patch: str = hypothesis["model_patch"]
-                        if not isinstance(hypothesis_patch, str):
-                            raise ValueError(f"Null patch in instance {instance['instance_id']}")
+                        instance["model_patch"] = hypothesis_patch
+                        repo.reset_to_base_commit(instance["base_commit"])
+                        reference_files: set = repo.find_absolute_file_paths_from_patch(reference_patch)
+                        if not isinstance(hypothesis_patch, str) or not hypothesis_patch:
+                            error_applying_patches += 1
+                            raise EvalError(f"Null patch in instance {instance['instance_id']}")
                         hypothesis_files: set = repo.find_absolute_file_paths_from_patch(hypothesis_patch)
 
                         def get_file_contents(files: set[Path]) -> dict[str, str]:
@@ -139,7 +186,8 @@ def prepare_instances():
 
                         relevant_files = reference_files & hypothesis_files
                         if relevant_files == set():
-                            raise ValueError("No overlap in files - not comparable.")
+                            no_comparable_files += 1
+                            raise EvalError("No overlap in files - not comparable.")
                         repo.reset_to_base_commit(instance["base_commit"])
                         source_files_content = get_file_contents(relevant_files)
                         repo.apply_patch(reference_patch)
@@ -148,19 +196,33 @@ def prepare_instances():
                         repo.reset_to_base_commit(instance["base_commit"])
                         repo.apply_patch(hypothesis_patch)
                         hypothesis_files_content = get_file_contents(relevant_files)
+                        prepared_file_contents += 1
+                    except EvalError as e:
+                        instance["exception"] = str(e)
                     except Exception as e:
                         instance["exception"] = str(e)
+                        error_applying_patches += 1
                         # print(e)
                     finally:
                         instance["source_files_content"] = source_files_content
                         instance["reference_files_content"] = reference_files_content
                         instance["hypothesis_files_content"] = hypothesis_files_content
+                        total_prepared_file_contents += 1
                         output.write(json.dumps(instance) + "\n")
             else:
                 print(f"Already preprocessed files for repo {reponame}.")
+    print(
+        (f"no_comparable_files = {no_comparable_files}\n"),
+        (f"error_applying_patches = {error_applying_patches}\n"),
+        (f"prepared_file_contents = {prepared_file_contents}\n"),
+        (f"total_prepared_file_contents = {total_prepared_file_contents}\n"),
+    )
 
 
 def snippet_instances():
+    global no_code_files
+    global selected_code_files
+    global total_code_files
     # filter to python files and prepare snippets
     if not os.path.exists(conf["snippeted_loc"]):
         open(conf["snippeted_loc"], "a").close()
@@ -172,7 +234,6 @@ def snippet_instances():
         tobesnippeted = (json.loads(line) for line in input)
         tobesnippeted = (i for i in tobesnippeted if i["instance_id"] not in known_iids)
         tobesnippeted = (i for i in tobesnippeted if "exception" not in i or not i["exception"])
-        tobesnippeted = (i for i in tobesnippeted if len([k for k in i["reference_files_content"] if k.endswith(".py")]) != 0)
         genwrap = GenWrapper(tobesnippeted)
         if not genwrap.__nonzero__():
             print(f"Already done snippeting")
@@ -180,6 +241,10 @@ def snippet_instances():
         print(f"Snippeting instances")
         with open(conf["snippeted_loc"], "+a") as output:
             for instance in tqdm.tqdm(genwrap):
+                total_code_files += 1
+                if len([k for k in instance["reference_files_content"] if k.endswith(".py")]) == 0:
+                    no_code_files += 1
+                    continue
                 instance["reference_files_content"] = {key: val for key, val in instance["reference_files_content"].items() if key.endswith(".py")}
                 instance["source_files_content"] = {key: val for key, val in instance["source_files_content"].items() if key.endswith(".py")}
                 instance["hypothesis_files_content"] = {key: val for key, val in instance["hypothesis_files_content"].items() if key.endswith(".py")}
@@ -189,7 +254,13 @@ def snippet_instances():
                     instance[f"{i}_snippets_content"] = {
                         k: generate_snippets(try_remove_comments_and_docstrings(v, lang="python")) for k, v in instance[f"{i}_files_content"].items()
                     }
+                selected_code_files += 1
                 output.write(json.dumps(instance) + "\n")
+    print(
+        (f"no_code_files = {no_code_files}\n"),
+        (f"selected_code_files = {selected_code_files}\n"),
+        (f"total_code_files = {total_code_files}\n"),
+    )
 
 
 def clean_code(code: str):
@@ -246,6 +317,7 @@ def score_instances():
                     dprint(f"cleaned code for {instance['instance_id']} in {time.time() - s}s")
                     s = time.time()
                     instance["codebleu"] = codebleu.calc_codebleu(references=reference, predictions=hypothesis, lang="python")
+                    instance["codebleu_patch"] = codebleu.calc_codebleu([instance["patch"]], [instance["model_patch"]], lang="python")
                     instance["bleu"] = instance["codebleu"]["ngram_match_score"]
                     if "intermediates" not in instance or not instance["intermediates"]:
                         cg = diffsim.calc_diffsim(
@@ -294,12 +366,12 @@ def recalc(instance):
     # if instance["codebleu"]["syntax_match_score"] != instance["diffsim"]["syntax_match_score"]:
     #     pass
     # if not instance["resolved"]:
-    instance["diffsim"] = diffsim.calc_diffsim(
-        [], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=instance["intermediates"], weights=conf["weights"]
-    )
-    instance["codegleu"] = codegleu.calc_codegleu(
-        [], [], [], lang="python", penalty=conf["codegleupenalty"], intermediates=instance["intermediates"], weights=conf["weights"]
-    )
+    # instance["diffsim"] = diffsim.calc_diffsim(
+    #     [], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=instance["intermediates"], weights=conf["weights"]
+    # )
+    # instance["codegleu"] = codegleu.calc_codegleu(
+    #     [], [], [], lang="python", penalty=conf["codegleupenalty"], intermediates=instance["intermediates"], weights=conf["weights"]
+    # )
     filelen = 0
     patchlen = 0
     for patchedFile in unidiff.PatchSet(instance["patch"]):
@@ -312,7 +384,7 @@ def recalc(instance):
             filelen += len(hpaths[patchedFile.path])
             patchlen += len(str(patchedFile))
     instance["patchpercentage"] = 1 - (patchlen / filelen)
-    return {k: instance[k] for k in ["codebleu", "codegleu", "diffsim", "bleu", "instance_id", "patchpercentage"]}
+    return {k: instance[k] for k in ["codebleu", "codebleu_patch", "codegleu", "diffsim", "bleu", "instance_id", "patchpercentage"]}
 
 
 conf = {
@@ -344,6 +416,20 @@ def main():
     prepare_instances()
     snippet_instances()
     score_instances()
+
+    print(
+        (f"pred_instances = {pred_instances}\n"),
+        (f"invalid_instances = {invalid_instances}\n"),
+        (f"valid_instances = {valid_instances}\n"),
+        (f"total_instances = {total_instances}\n"),
+        (f"no_comparable_files = {no_comparable_files}\n"),
+        (f"error_applying_patches = {error_applying_patches}\n"),
+        (f"prepared_file_contents = {prepared_file_contents}\n"),
+        (f"total_prepared_file_contents = {total_prepared_file_contents}\n"),
+        (f"no_code_files = {no_code_files}\n"),
+        (f"selected_code_files = {selected_code_files}\n"),
+        (f"total_code_files = {total_code_files}\n"),
+    )
 
     with open(conf["results_loc"], "r") as fp:
         results = json.load(fp)
@@ -410,7 +496,7 @@ def main():
     padlen = 26
     print(" " * 32 + "metric vs resolved          " + "metric vs patchpercent")
     print(" " * 32 + "Correlation   P-Value       " + "Correlation   P-Value")
-    for group in ["bleu", "codebleu", "codegleu", "diffsim"]:
+    for group in ["bleu", "codebleu", "codebleu_patch", "codegleu", "diffsim"]:
         print(f"Performing Ablation Study for {group}")
         scores = toscore[0][group]
         if isinstance(scores, dict):
@@ -437,5 +523,17 @@ def main():
 
 
 if __name__ == "__main__":
+    pred_instances = 0
+    invalid_instances = 0
+    valid_instances = 0
+    total_instances = 0
+
+    no_comparable_files = 0
+    error_applying_patches = 0
+    prepared_file_contents = 0
+    total_prepared_file_contents = 0
+
+    no_code_files = 0
+    selected_code_files = 0
+    total_code_files = 0
     main()
-pass
