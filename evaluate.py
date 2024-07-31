@@ -523,6 +523,22 @@ def main():
     sns.regplot(x=[i["unchangedpercentage"] for i in toscore], y=[i["codebleu"]["codebleu"] for i in toscore])
     plt.savefig(f"{conf['figs_loc']}/codebleu_vs_unchangedpercent.png")
     plt.close()
+    scoregroups = [
+        {"name": "bleu", "scores": [i["bleu"]["bleu"] for i in toscore]},
+        {"name": "codebleu", "scores": [i["codebleu"]["codebleu"] for i in toscore]},
+        {"name": "codebleu_patch", "scores": [i["codebleu_patch"]["codebleu"] for i in toscore]},
+        {"name": "codegleu", "scores": [i["codegleu"]["codegleu"] for i in toscore]},
+        {"name": "diffsim", "scores": [i["diffsim"]["diffsim"] for i in toscore]},
+    ]
+    scoregroups = [i | {"mvr": pearsonr(resornot, i["scores"])} for i in scoregroups]
+    scoregroups = [i | {"mvr_c": int(100 * i["mvr"][0]), "mvr_p": int(100 * i["mvr"][1])} for i in scoregroups]
+    scoregroups = [i | {"mvp": pearsonr([i["unchangedpercentage"] for i in toscore], i["scores"])} for i in scoregroups]
+    scoregroups = [i | {"mvp_c": int(100 * i["mvp"][0]), "mvp_p": int(100 * i["mvp"][1])} for i in scoregroups]
+    df = pd.DataFrame(scoregroups)
+    for n in ["mvr_c", "mvr_p", "mvp_c", "mvp_p"]:
+        sns.regplot(x=df["name"], y=df[n])
+        plt.savefig(f"{conf['figs_loc']}/score {n} bars.png")
+        plt.close()
     wandb.finish()
 
 
