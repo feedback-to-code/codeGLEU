@@ -508,14 +508,15 @@ def main():
                 pr = pearsonr([i[group][score] for i in toscore], [i["patchpercentage"] for i in toscore])
                 print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ")
                 wandb.log({f"mvp_{group}_{score}_corr": pr[0], f"mvp_{group}_{score}_p": pr[1]})
-    data = [s["diffsim"] | {"group": "passed" if r else "failed"} for s, r in zip(toscore, resornot)]
     if not os.path.exists(conf["figs_loc"]):
         os.mkdir(conf["figs_loc"])
-    fig, axs = plt.subplots(ncols=5, figsize=(20, 5))
-    for i, k in enumerate(toscore[0]["diffsim"]):
-        sns.histplot(x=k, hue="group", data=pd.DataFrame(data), palette={"passed": "green", "failed": "red"}, binwidth=0.02, ax=axs[i])
-    fig.savefig(f"{conf['figs_loc']}/diffsim_scores.png")
-    plt.close()
+    for n in ["codebleu", "codebleu_patch", "codegleu", "diffsim"]:
+        data = [s[n] | {"group": "passed" if r else "failed"} for s, r in zip(toscore, resornot)]
+        fig, axs = plt.subplots(ncols=5, figsize=(20, 5))
+        for i, k in enumerate(toscore[0][n]):
+            sns.histplot(x=k, hue="group", data=pd.DataFrame(data), palette={"passed": "green", "failed": "red"}, binwidth=0.02, ax=axs[i])
+        fig.savefig(f"{conf['figs_loc']}/{n}_scores.png")
+        plt.close()
     sns.regplot(x=[i["diffsim"]["diffsim"] for i in toscore], y=resornot)
     plt.savefig(f"{conf['figs_loc']}/versus.png")
     plt.close()
