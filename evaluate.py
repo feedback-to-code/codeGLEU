@@ -382,9 +382,9 @@ def recalc(instance):
             hpaths = {"/".join(p.split("/")[4:]): f for p, f in hpaths.items()}
         if patchedFile.path in hpaths:
             filelen += len(hpaths[patchedFile.path])
-            patchlen += len(str(patchedFile))
-    instance["patchpercentage"] = 1 - (patchlen / filelen)
-    return {k: instance[k] for k in ["codebleu", "codebleu_patch", "codegleu", "diffsim", "bleu", "instance_id", "patchpercentage"]}
+            patchlen += len(str("".join("".join(str(line) for line in hunk) for hunk in patchedFile))) / 2
+    instance["unchangedpercentage"] = max(0, 1 - (patchlen / filelen))
+    return {k: instance[k] for k in ["codebleu", "codebleu_patch", "codegleu", "diffsim", "bleu", "instance_id", "unchangedpercentage"]}
 
 
 conf = {
@@ -489,12 +489,12 @@ def main():
     print(f"Resolved Instance Averages:     BLEU: {res_bleu} CodeBLEU: {res_codebleu} CodeGLEU: {res_codegleu}")
     print(f"Non-Resolved Instance Averages: BLEU: {nres_bleu} CodeBLEU: {nres_codebleu} CodeGLEU: {nres_codegleu}")
 
-    pr = pearsonr(resornot, [i["patchpercentage"] for i in toscore])
+    pr = pearsonr(resornot, [i["unchangedpercentage"] for i in toscore])
     print(f"Patch percentage vs resolved:   Correlation: {pr[0]} P-Value: {pr[1]} ")
 
     toscore = [i | {"bleu": {"bleu": i["bleu"]}} for i in toscore]
     padlen = 26
-    print(" " * 32 + "metric vs resolved          " + "metric vs patchpercent")
+    print(" " * 32 + "metric vs resolved          " + "metric vs unchangedpercent")
     print(" " * 32 + "Correlation   P-Value       " + "Correlation   P-Value")
     for group in ["bleu", "codebleu", "codebleu_patch", "codegleu", "diffsim"]:
         print(f"Performing Ablation Study for {group}")
@@ -505,7 +505,7 @@ def main():
                 pr = pearsonr(resornot, [i[group][score] for i in toscore])
                 print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ", end="")
                 wandb.log({f"mvr_{group}_{score}_corr": pr[0], f"mvr_{group}_{score}_p": pr[1]})
-                pr = pearsonr([i[group][score] for i in toscore], [i["patchpercentage"] for i in toscore])
+                pr = pearsonr([i[group][score] for i in toscore], [i["unchangedpercentage"] for i in toscore])
                 print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ")
                 wandb.log({f"mvp_{group}_{score}_corr": pr[0], f"mvp_{group}_{score}_p": pr[1]})
     if not os.path.exists(conf["figs_loc"]):
@@ -518,7 +518,10 @@ def main():
         fig.savefig(f"{conf['figs_loc']}/{n}_scores.png")
         plt.close()
     sns.regplot(x=[i["diffsim"]["diffsim"] for i in toscore], y=resornot)
-    plt.savefig(f"{conf['figs_loc']}/versus.png")
+    plt.savefig(f"{conf['figs_loc']}/resornot_vs_diffsim.png")
+    plt.close()
+    sns.regplot(x=[i["unchangedpercentage"] for i in toscore], y=[i["codebleu"]["codebleu"] for i in toscore])
+    plt.savefig(f"{conf['figs_loc']}/codebleu_vs_unchangedpercent.png")
     plt.close()
     wandb.finish()
 
