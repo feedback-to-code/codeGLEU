@@ -30,7 +30,6 @@ def corpus_syntax_match(references, candidates, lang, tree_sitter_language=None)
     parser = Parser()
     parser.language = tree_sitter_language
     match_count = 0
-    match_count_candidate_to_reference = 0
     total_count = 0
 
     for i in range(len(candidates)):

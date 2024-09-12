@@ -10,6 +10,7 @@ from multiprocessing import Pool
 from pathlib import Path
 from typing import Any
 
+import argparse
 import black
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -154,7 +155,7 @@ def prepare_instances():
             repohypos = hypotheses_by_repo[reponame]
             repohypos = [hypo for hypo in repohypos if hypo["instance_id"] not in known_iids]
             if len(repohypos) > 0:
-                print(f"Collecting {len(instances_by_repo[reponame])} instances for repo {reponame}.")
+                print(f"Collecting {len(hypotheses_by_repo[reponame])} instances for repo {reponame}.")
                 print(f"Collecting {len(repohypos)} instances not in output file.")
                 for hypothesis in tqdm.tqdm(repohypos):
                     source_files_content = {}
@@ -250,10 +251,10 @@ def snippet_instances():
                 instance["hypothesis_files_content"] = {key: val for key, val in instance["hypothesis_files_content"].items() if key.endswith(".py")}
                 assert len(instance["reference_files_content"]) == len(instance["source_files_content"])
                 assert len(instance["reference_files_content"]) == len(instance["hypothesis_files_content"])
-                for i in ["source", "reference", "hypothesis"]:
-                    instance[f"{i}_snippets_content"] = {
-                        k: generate_snippets(try_remove_comments_and_docstrings(v, lang="python")) for k, v in instance[f"{i}_files_content"].items()
-                    }
+                # for i in ["source", "reference", "hypothesis"]:
+                #     instance[f"{i}_snippets_content"] = {
+                #         k: generate_snippets(try_remove_comments_and_docstrings(v, lang="python")) for k, v in instance[f"{i}_files_content"].items()
+                #     }
                 selected_code_files += 1
                 output.write(json.dumps(instance) + "\n")
     print(
@@ -344,6 +345,18 @@ def score_instances():
                     instance["codegleu"] = codegleu.calc_codegleu(
                         [], [], [], lang="python", penalty=conf["codegleupenalty"], intermediates=intermediates, weights=conf["weights"]
                     )
+                    filelen = 0
+                    patchlen = 0
+                    for patchedFile in unidiff.PatchSet(instance["patch"]):
+                        hpaths: dict[str, Any] = instance["hypothesis_files_content"]
+                        if list(hpaths.keys())[0].split("\\")[0] == "experiments":
+                            hpaths = {"/".join(p.split("\\")[4:]): f for p, f in hpaths.items()}
+                        if list(hpaths.keys())[0].split("/")[0] == "experiments":
+                            hpaths = {"/".join(p.split("/")[4:]): f for p, f in hpaths.items()}
+                        if patchedFile.path in hpaths:
+                            filelen += len(hpaths[patchedFile.path])
+                            patchlen += len(str("".join("".join(str(line) for line in hunk) for hunk in patchedFile))) / 2
+                    instance["unchangedpercentage"] = max(0, 1 - (patchlen / filelen))
                     dprint(f"calculated scores for {instance['instance_id']} in {time.time() - s}s")
                     with output_lock:
                         pbar.update(1)
@@ -372,19 +385,26 @@ def recalc(instance):
     # instance["codegleu"] = codegleu.calc_codegleu(
     #     [], [], [], lang="python", penalty=conf["codegleupenalty"], intermediates=instance["intermediates"], weights=conf["weights"]
     # )
-    filelen = 0
-    patchlen = 0
-    for patchedFile in unidiff.PatchSet(instance["patch"]):
-        hpaths: dict[str, Any] = instance["hypothesis_files_content"]
-        if list(hpaths.keys())[0].split("\\")[0] == "experiments":
-            hpaths = {"/".join(p.split("\\")[4:]): f for p, f in hpaths.items()}
-        if list(hpaths.keys())[0].split("/")[0] == "experiments":
-            hpaths = {"/".join(p.split("/")[4:]): f for p, f in hpaths.items()}
-        if patchedFile.path in hpaths:
-            filelen += len(hpaths[patchedFile.path])
-            patchlen += len(str("".join("".join(str(line) for line in hunk) for hunk in patchedFile))) / 2
-    instance["unchangedpercentage"] = max(0, 1 - (patchlen / filelen))
+    if "unchangedpercentage" not in instance or not instance["unchangedpercentage"]:
+        filelen = 0
+        patchlen = 0
+        for patchedFile in unidiff.PatchSet(instance["patch"]):
+            hpaths: dict[str, Any] = instance["hypothesis_files_content"]
+            if list(hpaths.keys())[0].split("\\")[0] == "experiments":
+                hpaths = {"/".join(p.split("\\")[4:]): f for p, f in hpaths.items()}
+            if list(hpaths.keys())[0].split("/")[0] == "experiments":
+                hpaths = {"/".join(p.split("/")[4:]): f for p, f in hpaths.items()}
+            if patchedFile.path in hpaths:
+                filelen += len(hpaths[patchedFile.path])
+                patchlen += len(str("".join("".join(str(line) for line in hunk) for hunk in patchedFile))) / 2
+        instance["unchangedpercentage"] = max(0, 1 - (patchlen / filelen))
     return {k: instance[k] for k in ["codebleu", "codebleu_patch", "codegleu", "diffsim", "bleu", "instance_id", "unchangedpercentage"]}
+
+
+def write_log(*args, **kwargs):
+    with open(conf["log_loc"], "a+") as log_file:
+        print(*args, file=log_file, **kwargs)
+    print(*args, **kwargs)
 
 
 conf = {
@@ -397,18 +417,20 @@ conf = {
     "weights": (1,) * 4,
     "n_weights": (0.25,) * 4,
     "verbose": False,
+    "rankingscores_loc": f"./results/rankingscores.txt", 
 }
-conf["instances_dir"] = f"{conf['data_dir']}/instances"
-conf["model_path"] = f"{conf['data_dir']}/models/{conf['model']}"
-conf["preds_loc"] = f"{conf['model_path']}/all_preds.jsonl"
-conf["results_loc"] = f"{conf['model_path']}/results/results.json"
-conf["preprocessed_loc"] = f"{conf['model_path']}/preprocessed_instances.jsonl"
-conf["snippeted_loc"] = f"{conf['model_path']}/snippeted_instances.jsonl"
-conf["scored_loc"] = f"{conf['model_path']}/scored_instances.jsonl"
-conf["figs_loc"] = f"./figs/{conf['model']}"
 
 
 def main():
+    conf["instances_dir"] = f"{conf['data_dir']}/instances"
+    conf["model_path"] = f"{conf['data_dir']}/models/{conf['model']}"
+    conf["preds_loc"] = f"{conf['model_path']}/all_preds.jsonl"
+    conf["results_loc"] = f"{conf['model_path']}/results/results.json"
+    conf["preprocessed_loc"] = f"{conf['model_path']}/preprocessed_instances.jsonl"
+    conf["snippeted_loc"] = f"{conf['model_path']}/snippeted_instances.jsonl"
+    conf["scored_loc"] = f"{conf['model_path']}/scored_instances.jsonl"
+    conf["figs_loc"] = f"./figs/{conf['model']}"
+    conf["log_loc"] = f"./results/{conf['model']}.txt"
     os.environ["WANDB_SILENT"] = "true"
     wandb.login()
     wandb.init(project="codegleu", config=conf)
@@ -416,8 +438,9 @@ def main():
     prepare_instances()
     snippet_instances()
     score_instances()
-
-    print(
+    with open(conf["log_loc"], "w+") as log_file:
+        print(f"log for model {conf['model']} \n", file=log_file)
+    write_log(
         (f"pred_instances = {pred_instances}\n"),
         (f"invalid_instances = {invalid_instances}\n"),
         (f"valid_instances = {valid_instances}\n"),
@@ -471,50 +494,82 @@ def main():
                 notresolved.append(instance)
 
     total = len(resolved) + len(notresolved)
-    targetsize = min(conf["trim"], total) if conf["trim"] != -1 else total
-    resolved = random.sample(resolved, int(targetsize * len(resolved) / total + 0.5))
-    notresolved = random.sample(notresolved, int(targetsize * len(notresolved) / total + 0.5))
+    # targetsize = min(conf["trim"], total) if conf["trim"] != -1 else total
+    # resolved = random.sample(resolved, int(targetsize * len(resolved) / total + 0.5))
+    # notresolved = random.sample(notresolved, int(targetsize * len(notresolved) / total + 0.5))
 
     res_bleu = sum([i["bleu"] for i in resolved]) / len(resolved)
     res_codebleu = sum([i["codebleu"]["codebleu"] for i in resolved]) / len(resolved)
-    res_codegleu = sum([i["diffsim"]["diffsim"] for i in resolved]) / len(resolved)
+    res_codebleu_p = sum([i["codebleu_patch"]["codebleu"] for i in resolved]) / len(resolved)
+    res_codegleu = sum([i["codegleu"]["codegleu"] for i in resolved]) / len(resolved)
+    res_diffsim = sum([i["diffsim"]["diffsim"] for i in resolved]) / len(resolved)
 
     nres_bleu = sum([i["bleu"] for i in notresolved]) / len(notresolved)
     nres_codebleu = sum([i["codebleu"]["codebleu"] for i in notresolved]) / len(notresolved)
-    nres_codegleu = sum([i["diffsim"]["diffsim"] for i in notresolved]) / len(notresolved)
+    nres_codebleu_p = sum([i["codebleu_patch"]["codebleu"] for i in notresolved]) / len(notresolved)
+    nres_codegleu = sum([i["codegleu"]["codegleu"] for i in notresolved]) / len(notresolved)
+    nres_diffsim = sum([i["diffsim"]["diffsim"] for i in notresolved]) / len(notresolved)
 
     toscore = resolved + notresolved
     resornot = [1] * len(resolved) + [0] * len(notresolved)
 
-    print(f"Resolved Instance Averages:     BLEU: {res_bleu} CodeBLEU: {res_codebleu} CodeGLEU: {res_codegleu}")
-    print(f"Non-Resolved Instance Averages: BLEU: {nres_bleu} CodeBLEU: {nres_codebleu} CodeGLEU: {nres_codegleu}")
+    tot_bleu = sum([i["bleu"] for i in toscore]) / len(toscore)
+    tot_codebleu = sum([i["codebleu"]["codebleu"] for i in toscore]) / len(toscore)
+    tot_codebleu_p = sum([i["codebleu_patch"]["codebleu"] for i in toscore]) / len(toscore)
+    tot_codegleu = sum([i["codegleu"]["codegleu"] for i in toscore]) / len(toscore)
+    tot_diffsim = sum([i["diffsim"]["diffsim"] for i in toscore]) / len(toscore)
+
+    entries = []
+    with open(conf["rankingscores_loc"], "r+") as fp:
+        for line in fp:
+            js = json.loads(line)
+            if "model" in js and js["model"] != conf["model"]:
+                entries.append(js)
+    scores = {"model": conf["model"], "bleu": tot_bleu, "codebleu": tot_codebleu, "codegleu": tot_codegleu, "codebleu_p": tot_codebleu_p, "diffsim": tot_diffsim, "actual": len(resolved) / len(toscore)}
+    entries.append(scores)
+    with open(conf["rankingscores_loc"], "w+") as fp:
+        for js in entries:
+            fp.write(json.dumps(js) + "\n")
+
+    write_log(f"Instances. {len(toscore)}. resolved: {len(resolved)}. not resolved: {len(notresolved)}. % resolved: {len(resolved) / len(toscore)}")
+    write_log(f"Total Instance Averages:        BLEU: {tot_bleu} CodeBLEU: {tot_codebleu} CodeGLEU: {tot_codegleu} CodeBLEU_p: {tot_codebleu_p} FRITS: {tot_diffsim}")
+    write_log(f"Resolved Instance Averages:     BLEU: {res_bleu} CodeBLEU: {res_codebleu} CodeGLEU: {res_codegleu} CodeBLEU_p: {res_codebleu_p} FRITS: {res_diffsim}")
+    write_log(f"Non-Resolved Instance Averages: BLEU: {nres_bleu} CodeBLEU: {nres_codebleu} CodeGLEU: {nres_codegleu} CodeBLEU_p: {nres_codebleu_p} FRITS: {nres_diffsim}")
 
     pr = pearsonr(resornot, [i["unchangedpercentage"] for i in toscore])
-    print(f"Patch percentage vs resolved:   Correlation: {pr[0]} P-Value: {pr[1]} ")
+    write_log(f"Patch percentage vs resolved:   Correlation: {pr[0]} P-Value: {pr[1]} ")
 
     toscore = [i | {"bleu": {"bleu": i["bleu"]}} for i in toscore]
     padlen = 26
-    print(" " * 32 + "metric vs resolved          " + "metric vs unchangedpercent")
-    print(" " * 32 + "Correlation   P-Value       " + "Correlation   P-Value")
+    write_log(" " * 32 + "metric vs resolved          " + "metric vs unchangedpercent")
+    write_log(" " * 32 + "Correlation   P-Value       " + "Correlation   P-Value")
     for group in ["bleu", "codebleu", "codebleu_patch", "codegleu", "diffsim"]:
-        print(f"Performing Ablation Study for {group}")
+        write_log(f"Performing Ablation Study for {group}")
         scores = toscore[0][group]
         if isinstance(scores, dict):
             for score in scores:
-                print(f"    {score + ' ' * (padlen-len(score))} ", end="")
+                write_log(f"    {score + ' ' * (padlen-len(score))} ", end="")
                 pr = pearsonr(resornot, [i[group][score] for i in toscore])
-                print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ", end="")
+                write_log(f" {'%.10f' % pr[0]}, " + str(pr[1]), end="")
                 wandb.log({f"mvr_{group}_{score}_corr": pr[0], f"mvr_{group}_{score}_p": pr[1]})
                 pr = pearsonr([i[group][score] for i in toscore], [i["unchangedpercentage"] for i in toscore])
-                print(f" {'%.10f' % pr[0]}, {'%.10f' % pr[1]} ")
+                write_log(f" {'%.10f' % pr[0]}, " + str(pr[1]))
                 wandb.log({f"mvp_{group}_{score}_corr": pr[0], f"mvp_{group}_{score}_p": pr[1]})
     if not os.path.exists(conf["figs_loc"]):
         os.mkdir(conf["figs_loc"])
     for n in ["codebleu", "codebleu_patch", "codegleu", "diffsim"]:
-        data = [s[n] | {"group": "passed" if r else "failed"} for s, r in zip(toscore, resornot)]
-        fig, axs = plt.subplots(ncols=5, figsize=(20, 5))
+        data = [s[n] | {"group": "resolved" if r else "not resolved"} for s, r in zip(toscore, resornot)]
+        fig, axs = plt.subplots(ncols=5, figsize=(25, 5))
+        plots = []
         for i, k in enumerate(toscore[0][n]):
-            sns.histplot(x=k, hue="group", data=pd.DataFrame(data), palette={"passed": "green", "failed": "red"}, binwidth=0.02, ax=axs[i])
+            p = sns.histplot(x=k, hue="group", data=pd.DataFrame(data), palette={"resolved": "green", "not resolved": "red"}, binwidth=0.02, ax=axs[i])
+            names = {"ngram_match_score": "Match$_{df}$", "weighted_ngram_match_score": "Match$_{kw}$", "syntax_match_score": "Match$_{ast}$", "dataflow_match_score": "Match$_{df}$"}
+            p.set(xlabel=(names[k] if k in names else k))
+            plots.append(p)
+        maxlim = max([p.get_ylim()[1] for p in plots])
+        for p in plots:
+            p.set_ylim(top = maxlim, bottom = 0)
+        plt.subplots_adjust(hspace = 0.4, wspace = 0.4)
         fig.savefig(f"{conf['figs_loc']}/{n}_scores.png")
         plt.close()
     sns.regplot(x=[i["diffsim"]["diffsim"] for i in toscore], y=resornot)
@@ -536,7 +591,7 @@ def main():
     scoregroups = [i | {"mvp_c": int(100 * i["mvp"][0]), "mvp_p": int(100 * i["mvp"][1])} for i in scoregroups]
     df = pd.DataFrame(scoregroups)
     for n in ["mvr_c", "mvr_p", "mvp_c", "mvp_p"]:
-        sns.regplot(x=df["name"], y=df[n])
+        sns.barplot(x=df["name"], y=df[n])
         plt.savefig(f"{conf['figs_loc']}/score {n} bars.png")
         plt.close()
     wandb.finish()
@@ -556,4 +611,8 @@ if __name__ == "__main__":
     no_code_files = 0
     selected_code_files = 0
     total_code_files = 0
+    parser = argparse.ArgumentParser(prog='Evaluate', description='Run evaluation pipeline')
+    parser.add_argument("--model", help="model subpath to evaluate", default="20240402_sweagent_gpt4", type=str)
+    args = parser.parse_args()
+    conf["model"] = args.model
     main()

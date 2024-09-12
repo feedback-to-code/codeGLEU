@@ -166,7 +166,7 @@ class GitRepo:
         relpath = str(file_path).lstrip("\\").lstrip("/")  # if you attempt to combine two absolute pathlib paths, one is taken as a source
         path = repo_path / relpath
         with open(Path(path)) as f:
-            return sum(1 for _ in f)
+            return len(f)
 
     def write_code(self, code: dict[str, str]) -> None:
         for file_path, content in code.items():

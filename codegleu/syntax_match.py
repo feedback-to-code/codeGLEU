@@ -108,6 +108,7 @@ def corpus_syntax_score(
             ref_removed = source_interm - (source_interm & reference_interm)
             hyp_added = hypothesis_interm - (source_interm & hypothesis_interm)
             hyp_removed = source_interm - (source_interm & hypothesis_interm)
+            
             correct_changes = ((ref_added & hyp_added) + (ref_removed & hyp_removed)).total()
             wrong_changes = ((hyp_added - ref_added) + (hyp_removed - ref_removed)).total()
             total_changes = (ref_added + ref_removed).total()

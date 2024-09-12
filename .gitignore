@@ -180,3 +180,4 @@ experiments/
 scored_instances.jsonl
 wandb
 secret_secrets.py
+data/models/lite
