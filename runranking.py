@@ -1,11 +1,23 @@
 import os
+import json
 from pathlib import Path
 file = Path(os.path.realpath(__file__))
 root = file.parent
-modelfolder = root.joinpath(Path("data/models/lite"))
+modelfolder = root.joinpath(Path("data/models"))
 
-done = os.listdir(str(root.joinpath(Path("results/lite"))))
+prefix = "lite"
+if prefix:
+    modelfolder = modelfolder.joinpath(prefix)
+
+done = []
+models = []
+with open(str(root.joinpath(Path("results/rankingscores.txt"))), "r+") as scores:
+    for line in scores:
+        done.append(json.loads(line)["model"])
+print("already completed " + str(done))
 for model in os.listdir(str(modelfolder)):
-    if model + ".txt" in done:
-        continue
-    os.system(f"python evaluate.py --model lite/{model}")
+    models.append(prefix + "/" + model)
+
+todo = list(set(models) - set(done))
+for model in todo:
+    os.system("python evaluate.py --model " + model)

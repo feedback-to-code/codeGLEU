@@ -1,0 +1,14 @@
+log for model lite/20240623_moatless_claude35sonnet 
+
+pred_instances = 300
+ invalid_instances = 0
+ valid_instances = 2267
+ total_instances = 2267
+ no_comparable_files = 58
+ error_applying_patches = 23
+ prepared_file_contents = 219
+ total_prepared_file_contents = 300
+ no_code_files = 0
+ selected_code_files = 219
+ total_code_files = 219
+

@@ -438,6 +438,7 @@ def main():
     prepare_instances()
     snippet_instances()
     score_instances()
+    print(f"eval for model {conf['model']} \n")
     with open(conf["log_loc"], "w+") as log_file:
         print(f"log for model {conf['model']} \n", file=log_file)
     write_log(
@@ -490,7 +491,8 @@ def main():
         for instance in scored:
             if instance["instance_id"] in results["resolved"]:
                 resolved.append(instance)
-            elif instance["instance_id"] in results["applied"]:
+            # elif instance["instance_id"] in results["applied"]:
+            else:
                 notresolved.append(instance)
 
     total = len(resolved) + len(notresolved)
@@ -612,7 +614,7 @@ if __name__ == "__main__":
     selected_code_files = 0
     total_code_files = 0
     parser = argparse.ArgumentParser(prog='Evaluate', description='Run evaluation pipeline')
-    parser.add_argument("--model", help="model subpath to evaluate", default="20240402_sweagent_gpt4", type=str)
+    parser.add_argument("--model", help="model subpath to evaluate", default="lite/20240808_RepoGraph_gpt4o", type=str)
     args = parser.parse_args()
     conf["model"] = args.model
     main()

@@ -1,0 +1,47 @@
+log for model lite/20240402_rag_claude3opus 
+
+pred_instances = 300
+ invalid_instances = 0
+ valid_instances = 2267
+ total_instances = 2267
+ no_comparable_files = 0
+ error_applying_patches = 0
+ prepared_file_contents = 0
+ total_prepared_file_contents = 0
+ no_code_files = 0
+ selected_code_files = 0
+ total_code_files = 0
+
+Instances. 76. resolved: 13. not resolved: 63. % resolved: 0.17105263157894737
+Total Instance Averages:        BLEU: 0.9733523381691033 CodeBLEU: 0.9078145406461147 CodeGLEU: 0.8431087846170403 CodeBLEU_p: 0.33472843248841144 FRITS: 0.1966740548858792
+Resolved Instance Averages:     BLEU: 0.9891095437342753 CodeBLEU: 0.9448230810827367 CodeGLEU: 0.9062677200796525 CodeBLEU_p: 0.503938185641175 FRITS: 0.4583714191968765
+Non-Resolved Instance Averages: BLEU: 0.9701008513064491 CodeBLEU: 0.9001778576988756 CodeGLEU: 0.8300759884104697 CodeBLEU_p: 0.29981213421879377 FRITS: 0.1426730114566258
+Patch percentage vs resolved:   Correlation: -0.12982101808986518 P-Value: 0.263680440315587 
+                                metric vs resolved          metric vs unchangedpercent
+                                Correlation   P-Value       Correlation   P-Value
+Performing Ablation Study for bleu
+    bleu                        0.1957436825, 0.0901497715317831 0.3377517777, 0.00284630650193071
+Performing Ablation Study for codebleu
+    codebleu                    0.1855471067, 0.10855492988768022 0.0081509029, 0.9442880530966935
+    ngram_match_score           0.1957436825, 0.0901497715317831 0.3377517777, 0.00284630650193071
+    weighted_ngram_match_score  0.1994362874, 0.0841267067236306 0.3350862089, 0.0030878962861354427
+    syntax_match_score          0.1002578045, 0.38884391720057254 0.3468868930, 0.0021413275139474074
+    dataflow_match_score        0.1439912468, 0.21462012176314474 -0.1011509830, 0.3846107940754563
+Performing Ablation Study for codebleu_patch
+    codebleu                    0.3445101175, 0.002307773199686429 -0.1725953077, 0.13598046991946014
+    ngram_match_score           0.3995409709, 0.0003495175896916763 -0.1715370782, 0.13843398958231745
+    weighted_ngram_match_score  0.3949039989, 0.00041512305300435046 -0.1706247721, 0.14057587391506504
+    syntax_match_score          0.2146824914, 0.06255820113178205 -0.1189409684, 0.3061392268943556
+    dataflow_match_score        0.2213825055, 0.05461801932795222 -0.1602865593, 0.1666193638112627
+Performing Ablation Study for codegleu
+    codegleu                    0.2577695745, 0.024571314083781118 0.0929057782, 0.4247317212751137
+    ngram_match_score           0.2074717601, 0.07212258816792302 0.3575389474, 0.0015201587428075331
+    weighted_ngram_match_score  0.2604581167, 0.023064569653868293 0.2905155316, 0.010901345474954333
+    syntax_match_score          0.0977890095, 0.4006881664939066 0.4003198697, 0.0003394790253696222
+    dataflow_match_score        0.2137024978, 0.06379428763109012 -0.1390273588, 0.2310134288046215
+Performing Ablation Study for diffsim
+    diffsim                     0.5509435721, 2.509978819769794e-07 -0.0627643573, 0.590142061623606
+    ngram_match_score           0.6507669154, 1.970638643197488e-10 -0.1600327664, 0.1673005879292136
+    weighted_ngram_match_score  0.5372376696, 5.626492924195521e-07 -0.1095781269, 0.34604449360902734
+    syntax_match_score          0.3157617569, 0.005459460895091967 0.1197145927, 0.30298134611429284
+    dataflow_match_score        0.1197797972, 0.3027161590309514 0.0890786678, 0.44413901050023186
