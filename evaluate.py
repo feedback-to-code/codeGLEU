@@ -411,7 +411,7 @@ conf = {
     "data_dir": "./data",
     "experiments_dir": "./experiments",
     "trim": -1,  # size to trim dataset to after filtering
-    "model": "20240402_sweagent_gpt4",
+    "model": "20240820_honeycomb",
     "diffsimpenalty": (0.25, 0.25, 0.25, 0.25),
     "codegleupenalty": (1, 1, 1, 1),
     "weights": (1,) * 4,
@@ -424,7 +424,7 @@ conf = {
 def main():
     conf["instances_dir"] = f"{conf['data_dir']}/instances"
     conf["model_path"] = f"{conf['data_dir']}/models/{conf['model']}"
-    conf["preds_loc"] = f"{conf['model_path']}/all_preds.jsonl"
+    conf["preds_loc"] = f"{conf['model_path']}/resolved_preds.jsonl"
     conf["results_loc"] = f"{conf['model_path']}/results/results.json"
     conf["preprocessed_loc"] = f"{conf['model_path']}/preprocessed_instances.jsonl"
     conf["snippeted_loc"] = f"{conf['model_path']}/snippeted_instances.jsonl"
@@ -614,7 +614,7 @@ if __name__ == "__main__":
     selected_code_files = 0
     total_code_files = 0
     parser = argparse.ArgumentParser(prog='Evaluate', description='Run evaluation pipeline')
-    parser.add_argument("--model", help="model subpath to evaluate", default="lite/20240808_RepoGraph_gpt4o", type=str)
+    parser.add_argument("--model", help="model subpath to evaluate", default="20240820_honeycomb", type=str)
     args = parser.parse_args()
     conf["model"] = args.model
     main()
