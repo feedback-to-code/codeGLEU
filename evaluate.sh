@@ -6,6 +6,6 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=5
 #SBATCH --mem=16G
-#SBATCH --time=8:0:0
-
-python /hpi/fs00/home/fritz.darchinger/codeGLEU/evaluate.py
+#SBATCH --time=24:0:0
+#SBATCH --constraint=ARCH:X86
+python evaluate.py

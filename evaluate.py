@@ -223,6 +223,7 @@ def prepare_instances():
 def snippet_instances():
     global no_code_files
     global selected_code_files
+    global different_files
     global total_code_files
     # filter to python files and prepare snippets
     if not os.path.exists(conf["snippeted_loc"]):
@@ -249,8 +250,12 @@ def snippet_instances():
                 instance["reference_files_content"] = {key: val for key, val in instance["reference_files_content"].items() if key.endswith(".py")}
                 instance["source_files_content"] = {key: val for key, val in instance["source_files_content"].items() if key.endswith(".py")}
                 instance["hypothesis_files_content"] = {key: val for key, val in instance["hypothesis_files_content"].items() if key.endswith(".py")}
-                assert len(instance["reference_files_content"]) == len(instance["source_files_content"])
-                assert len(instance["reference_files_content"]) == len(instance["hypothesis_files_content"])
+                try:
+                    assert len(instance["reference_files_content"]) == len(instance["source_files_content"])
+                    assert len(instance["reference_files_content"]) == len(instance["hypothesis_files_content"])
+                except:
+                    different_files += 1
+                    continue
                 # for i in ["source", "reference", "hypothesis"]:
                 #     instance[f"{i}_snippets_content"] = {
                 #         k: generate_snippets(try_remove_comments_and_docstrings(v, lang="python")) for k, v in instance[f"{i}_files_content"].items()
@@ -259,6 +264,7 @@ def snippet_instances():
                 output.write(json.dumps(instance) + "\n")
     print(
         (f"no_code_files = {no_code_files}\n"),
+        (f"different_files = {different_files}\n"),
         (f"selected_code_files = {selected_code_files}\n"),
         (f"total_code_files = {total_code_files}\n"),
     )
@@ -452,6 +458,7 @@ def main():
         (f"total_prepared_file_contents = {total_prepared_file_contents}\n"),
         (f"no_code_files = {no_code_files}\n"),
         (f"selected_code_files = {selected_code_files}\n"),
+        (f"different_files = {different_files}\n"),
         (f"total_code_files = {total_code_files}\n"),
     )
 
@@ -612,6 +619,7 @@ if __name__ == "__main__":
 
     no_code_files = 0
     selected_code_files = 0
+    different_files = 0
     total_code_files = 0
     parser = argparse.ArgumentParser(prog='Evaluate', description='Run evaluation pipeline')
     parser.add_argument("--model", help="model subpath to evaluate", default="20240820_honeycomb", type=str)
