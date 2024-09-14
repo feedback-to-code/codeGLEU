@@ -500,17 +500,23 @@ def main():
     # resolved = random.sample(resolved, int(targetsize * len(resolved) / total + 0.5))
     # notresolved = random.sample(notresolved, int(targetsize * len(notresolved) / total + 0.5))
 
-    res_bleu = sum([i["bleu"] for i in resolved]) / len(resolved)
-    res_codebleu = sum([i["codebleu"]["codebleu"] for i in resolved]) / len(resolved)
-    res_codebleu_p = sum([i["codebleu_patch"]["codebleu"] for i in resolved]) / len(resolved)
-    res_codegleu = sum([i["codegleu"]["codegleu"] for i in resolved]) / len(resolved)
-    res_diffsim = sum([i["diffsim"]["diffsim"] for i in resolved]) / len(resolved)
+    if len(resolved) > 0:
+        res_bleu = sum([i["bleu"] for i in resolved]) / len(resolved)
+        res_codebleu = sum([i["codebleu"]["codebleu"] for i in resolved]) / len(resolved)
+        res_codebleu_p = sum([i["codebleu_patch"]["codebleu"] for i in resolved]) / len(resolved)
+        res_codegleu = sum([i["codegleu"]["codegleu"] for i in resolved]) / len(resolved)
+        res_diffsim = sum([i["diffsim"]["diffsim"] for i in resolved]) / len(resolved)
+    else:
+        res_bleu = res_codebleu = res_codebleu_p = res_codegleu = res_diffsim = 0
 
-    nres_bleu = sum([i["bleu"] for i in notresolved]) / len(notresolved)
-    nres_codebleu = sum([i["codebleu"]["codebleu"] for i in notresolved]) / len(notresolved)
-    nres_codebleu_p = sum([i["codebleu_patch"]["codebleu"] for i in notresolved]) / len(notresolved)
-    nres_codegleu = sum([i["codegleu"]["codegleu"] for i in notresolved]) / len(notresolved)
-    nres_diffsim = sum([i["diffsim"]["diffsim"] for i in notresolved]) / len(notresolved)
+    if len(notresolved) > 0:
+        nres_bleu = sum([i["bleu"] for i in notresolved]) / len(notresolved)
+        nres_codebleu = sum([i["codebleu"]["codebleu"] for i in notresolved]) / len(notresolved)
+        nres_codebleu_p = sum([i["codebleu_patch"]["codebleu"] for i in notresolved]) / len(notresolved)
+        nres_codegleu = sum([i["codegleu"]["codegleu"] for i in notresolved]) / len(notresolved)
+        nres_diffsim = sum([i["diffsim"]["diffsim"] for i in notresolved]) / len(notresolved)
+    else:
+        nres_bleu = nres_codebleu = nres_codebleu_p = nres_codegleu = nres_diffsim = 0
 
     toscore = resolved + notresolved
     resornot = [1] * len(resolved) + [0] * len(notresolved)
