@@ -58,8 +58,58 @@ def pad(s, ln, pos: str):
         case _:
             return s
 
-pprint = lambda x: x[0].replace("&", "\\&") + "&(" + '{:.2f}'.format(x[1]) + ")" 
-torank = ["codegleu", "codebleu_p", "diffsim"]
-print("&".join(["\\multicolumn{2}{c}{" + ranking + "}" for ranking in torank]) + "\\\\")
+# generate ranking table (latex)
+# pprint = lambda x: x[0].replace("&", "\\&") + "&(" + '{:.2f}'.format(x[1]) + ")" 
+# torank = rankings.keys()
+# print("&".join(["\\multicolumn{2}{c}{" + ranking + "}" for ranking in torank]) + "\\\\")
+# for i in range(0, len(rankings["actual"])):
+#     print("&".join([pprint(rankings[ranking][i]) for ranking in torank]) + "\\\\")
+
+pprint = lambda x: x[0] + "(" + '{:.2f}'.format(x[1]) + ")" 
+torank = rankings.keys()
+print("|".join([pad(ranking, 30, "m") for ranking in torank]))
 for i in range(0, len(rankings["actual"])):
-    print("&".join([pad(pprint(rankings[ranking][i]), 1, "r") for ranking in torank]) + "\\\\")
+    print("|".join([pad(pprint(rankings[ranking][i]), 30, "m") for ranking in torank]))
+
+#calculate ranking scores
+rankdict: dict[str, dict[str, int]] = {}
+actualpos: dict[str, int] = {}
+rankdict["inverse"] = {}
+for index, entry in enumerate(reversed(rankings["actual"])):
+    rankdict["inverse"][entry[0]] = index
+for index, entry in enumerate(rankings["actual"]):
+    actualpos[entry[0]] = index
+
+for ranking in rankings:
+    rankdict[ranking] = {}
+    for index, entry in enumerate(rankings[ranking]):
+        rankdict[ranking][entry[0]] = index
+
+accuracies = {}
+for score in rankdict:
+    ranking = rankdict[score]
+    numerator = 0
+    denominator = 0
+    for n in ranking.keys():
+        for n2 in actualpos.keys():
+            if n == n2:
+                continue
+            rdiff = ranking[n] - ranking[n2]
+            adiff = actualpos[n] - actualpos[n2]
+            if (rdiff > 0 and adiff > 0) or (rdiff == adiff) or (rdiff < 0 and adiff < 0):
+                numerator += 1
+            denominator += 1
+    accuracies[score] = numerator/denominator
+distances = {}
+for score in rankdict:
+    ranking = rankdict[score]
+    numerator = 0
+    denominator = 0
+    for n in ranking.keys():
+        p1 = ranking[n]
+        p2 = actualpos[n]
+        numerator += abs(p1-p2)
+        denominator += 1
+    distances[score] = numerator/denominator
+print("Accuracies: " + str(accuracies))
+print("Distances: " + str(distances))
