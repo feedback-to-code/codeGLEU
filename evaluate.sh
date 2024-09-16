@@ -6,6 +6,6 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=5
 #SBATCH --mem=16G
-#SBATCH --time=24:0:0
+#SBATCH --time=24:00:00
 #SBATCH --constraint=ARCH:X86
 python evaluate.py

@@ -220,7 +220,7 @@ def prepare_instances():
     )
 
 
-def snippet_instances():
+def clip_instances():
     global no_code_files
     global selected_code_files
     global different_files
@@ -307,7 +307,7 @@ def score_instances():
                 print(f"Already done scoring")
                 return
             print(f"Calculating scores")
-            pbar = tqdm.tqdm(total=input_lines - output_lines)
+            pbar = tqdm.tqdm(total = input_lines - output_lines, smoothing = 0)
 
             def worker():
                 while True:
@@ -377,20 +377,11 @@ def score_instances():
 
 
 def recalc(instance):
-    # source = [clean_code(val) for _, val in sorted(instance["source_files_content"].items())]
-    # reference = [clean_code(val) for _, val in sorted(instance["reference_files_content"].items())]
-    # hypothesis = [clean_code(val) for _, val in sorted(instance["hypothesis_files_content"].items())]
-    # instance["diffsim"] = codegleu.calc_codegleu(source, reference, hypothesis, lang="python", penalty=conf['penalty'], n_weights=conf['n_weights'], intermediates=instance["intermediates"])
-    # instance["codebleu"] = codebleu.calc_codebleu(reference, hypothesis, lang="python")
-    # if instance["codebleu"]["syntax_match_score"] != instance["diffsim"]["syntax_match_score"]:
-    #     pass
-    # if not instance["resolved"]:
-    # instance["diffsim"] = diffsim.calc_diffsim(
-    #     [], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=instance["intermediates"], weights=conf["weights"]
-    # )
-    # instance["codegleu"] = codegleu.calc_codegleu(
-    #     [], [], [], lang="python", penalty=conf["codegleupenalty"], intermediates=instance["intermediates"], weights=conf["weights"]
-    # )
+    # if instance["instance_id"] in extraref_intermediates:
+    #     newintermediates = instance["intermediates"]
+    #     for key in newintermediates:
+    #         newintermediates[key]["r_interms"] += extraref_intermediates[instance["instance_id"]][key]["r_interms"]
+    #     instance["diffsim"] = diffsim.calc_diffsim([], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=newintermediates, weights=conf["weights"])
     if "unchangedpercentage" not in instance or not instance["unchangedpercentage"]:
         filelen = 0
         patchlen = 0
@@ -417,7 +408,7 @@ conf = {
     "data_dir": "./data",
     "experiments_dir": "./experiments",
     "trim": -1,  # size to trim dataset to after filtering
-    "model": "20240820_honeycomb",
+    "model": "20240402_sweagent_gpt4",
     "diffsimpenalty": (0.25, 0.25, 0.25, 0.25),
     "codegleupenalty": (1, 1, 1, 1),
     "weights": (1,) * 4,
@@ -426,11 +417,20 @@ conf = {
     "rankingscores_loc": f"./results/rankingscores.txt", 
 }
 
-
+# extraref_intermediates = {}
+# with open("data/models/20240820_honeycomb/scored_instances.jsonl") as fp:
+#     for line in tqdm.tqdm(fp):
+#         inst = json.loads(line)
+#         intermediates = inst["intermediates"]
+#         for key in intermediates:
+#             intermediates[key] = {"r_interms": [intermediates[key]["h_interm"]]}
+#         extraref_intermediates[inst["instance_id"]] = intermediates
+#         del inst
+# pass
 def main():
     conf["instances_dir"] = f"{conf['data_dir']}/instances"
     conf["model_path"] = f"{conf['data_dir']}/models/{conf['model']}"
-    conf["preds_loc"] = f"{conf['model_path']}/resolved_preds.jsonl"
+    conf["preds_loc"] = f"{conf['model_path']}/all_preds.jsonl"
     conf["results_loc"] = f"{conf['model_path']}/results/results.json"
     conf["preprocessed_loc"] = f"{conf['model_path']}/preprocessed_instances.jsonl"
     conf["snippeted_loc"] = f"{conf['model_path']}/snippeted_instances.jsonl"
@@ -442,7 +442,7 @@ def main():
     wandb.init(project="codegleu", config=conf)
     collect_instances()
     prepare_instances()
-    snippet_instances()
+    clip_instances()
     score_instances()
     print(f"eval for model {conf['model']} \n")
     with open(conf["log_loc"], "w+") as log_file:
@@ -485,8 +485,9 @@ def main():
                 for index, line in enumerate(buffer):
                     buffer[index] = json.loads(line)
                     buffer[index]["resolved"] = buffer[index]["instance_id"] in results["resolved"]
-                with Pool(5) as pool:
-                    rets = pool.map(recalc, buffer, chunksize=5)
+                # with Pool(5) as pool:
+                #     rets = pool.map(recalc, buffer, chunksize=5)
+                rets = [recalc(i) for i in buffer]
                 del buffer
                 scored += rets
                 pbar.update(len(rets))
@@ -496,13 +497,15 @@ def main():
     with open(conf["results_loc"], "r") as fp:
         results = json.load(fp)
         for instance in scored:
+            # if instance["instance_id"] not in extraref_intermediates:
+            #     continue
             if instance["instance_id"] in results["resolved"]:
                 resolved.append(instance)
             # elif instance["instance_id"] in results["applied"]:
             else:
                 notresolved.append(instance)
 
-    total = len(resolved) + len(notresolved)
+    # total = len(resolved) + len(notresolved)
     # targetsize = min(conf["trim"], total) if conf["trim"] != -1 else total
     # resolved = random.sample(resolved, int(targetsize * len(resolved) / total + 0.5))
     # notresolved = random.sample(notresolved, int(targetsize * len(notresolved) / total + 0.5))
@@ -628,7 +631,7 @@ if __name__ == "__main__":
     different_files = 0
     total_code_files = 0
     parser = argparse.ArgumentParser(prog='Evaluate', description='Run evaluation pipeline')
-    parser.add_argument("--model", help="model subpath to evaluate", default="20240820_honeycomb", type=str)
+    parser.add_argument("--model", help="model subpath to evaluate", default="20240402_sweagent_gpt4", type=str)
     args = parser.parse_args()
     conf["model"] = args.model
     main()
