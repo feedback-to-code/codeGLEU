@@ -6,7 +6,7 @@ from collections import Counter
 from typing import Callable, Optional
 
 from .parser import try_remove_comments_and_docstrings
-from .utils import ngrams
+from .utils import ngrams, multirefscores
 
 
 def counter_diff(a, b):
@@ -101,45 +101,50 @@ def corpus_gleu_score(
     else:
         default_key_weight = 1
         key_weights = {}
-    p_n = [[0, 0] for _ in range(0, len(n_weights))]
-    for source_interm, reference_interms, hypothesis_interm in zip(intermediates["s_interm"], intermediates["r_interms"], intermediates["h_interm"]):
-        hyp_len = Counter(hypothesis_interm[0]).total()
-        hyp_lengths += hyp_len
-        ref_lens = (Counter(reference_interm[0]).total() for reference_interm in reference_interms)
-        ref_lengths += min(ref_lens, key=lambda ref_len: (abs(ref_len - hyp_len), ref_len))
-        for reference_interm in reference_interms:
-            for n in range(0, len(n_weights)):
-                source_interm_n = Counter(source_interm[n])
-                reference_interm_n = Counter(reference_interm[n])
-                hypothesis_interm_n = Counter(hypothesis_interm[n])
+    
+    source_interm = intermediates["s_interm"][0]
+    hypothesis_interm = intermediates["h_interm"][0]
+    reference_interms = [ri[0] for ri in intermediates["r_interms"]]
+    scores = []
 
-                def weighted_value(ngram, count):
-                    for key in key_weights:
-                        if f"('{key}'," in ngram:
-                            return count * key_weights[key]
-                    return count * default_key_weight
+    hyp_len = Counter(hypothesis_interm[0]).total()
+    hyp_lengths += hyp_len
+    ref_lens = (Counter(reference_interm[0]).total() for reference_interm in reference_interms)
+    ref_lengths += min(ref_lens, key=lambda ref_len: (abs(ref_len - hyp_len), ref_len))
+    for reference_interm in reference_interms:
+        p_n = [[0, 0] for _ in range(0, len(n_weights))]
+        for n in range(0, len(n_weights)):
+            source_interm_n = Counter(source_interm[n])
+            reference_interm_n = Counter(reference_interm[n])
+            hypothesis_interm_n = Counter(hypothesis_interm[n])
 
-                weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
+            def weighted_value(ngram, count):
+                for key in key_weights:
+                    if f"('{key}'," in ngram:
+                        return count * key_weights[key]
+                return count * default_key_weight
 
-                ref_added = reference_interm_n - source_interm_n
-                ref_removed = source_interm_n - reference_interm_n
-                hyp_added = hypothesis_interm_n - source_interm_n
-                hyp_removed = source_interm_n - hypothesis_interm_n
+            weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
 
-                correct_changes = weighted_count((ref_added & hyp_added) + (ref_removed & hyp_removed))
-                wrong_changes = weighted_count((hyp_added - ref_added) + (hyp_removed - ref_removed))
-                total_changes = weighted_count(ref_added + ref_removed)
-                p_n[n][0] += max(0, correct_changes - penalty * wrong_changes)
-                p_n[n][1] += max(0, total_changes)
+            ref_added = reference_interm_n - source_interm_n
+            ref_removed = source_interm_n - reference_interm_n
+            hyp_added = hypothesis_interm_n - source_interm_n
+            hyp_removed = source_interm_n - hypothesis_interm_n
 
-    if p_n[0][1] == 0:
-        # logging.warning(
-        #     "WARNING: There is no reference ngrams extracted from the whole corpus, "
-        #     "and the ngram match score degenerates to 0. Please consider ignoring this score."
-        # )
-        return -1.0, p_n
-    bp = brevity_penalty(ref_lengths, hyp_lengths)
-    p_n = smoothing_function(p_n)
-    sgen = (w_i * math.log(p_i[0] / p_i[1]) for w_i, p_i in zip(n_weights, p_n))
-    s: float = bp * math.exp(math.fsum(sgen))
-    return s, p_n
+            correct_changes = weighted_count((ref_added & hyp_added) + (ref_removed & hyp_removed))
+            wrong_changes = weighted_count((hyp_added - ref_added) + (hyp_removed - ref_removed))
+            total_changes = weighted_count(ref_added + ref_removed)
+            p_n[n][0] += max(0, correct_changes - penalty * wrong_changes)
+            p_n[n][1] += max(0, total_changes)
+
+        if p_n[0][1] != 0:
+            bp = brevity_penalty(ref_lengths, hyp_lengths)
+            p_n = smoothing_function(p_n)
+            sgen = (w_i * math.log(p_i[0] / p_i[1]) for w_i, p_i in zip(n_weights, p_n))
+            s: float = bp * math.exp(math.fsum(sgen))
+            scores.append(s)
+
+    if scores == []:
+        return -1.0
+    
+    return multirefscores(scores)

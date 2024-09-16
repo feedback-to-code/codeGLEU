@@ -4,6 +4,7 @@
 # Author: Steven Bird <stevenbird1@gmail.com>
 # URL: <http://nltk.org/>
 # For license information, see LICENSE
+import math
 
 from itertools import chain
 
@@ -204,3 +205,13 @@ class GenWrapper:
             self.stored = False
             return self.value
         return next(self.source)
+
+def avg(l):
+    return sum(l) / len(l)
+
+def multirefscores(scores: list[float]):
+    try:
+        # return avg([avg(scores), max(scores)])
+        return max(scores)
+    except:
+        return -1

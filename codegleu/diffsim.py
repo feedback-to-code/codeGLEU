@@ -65,8 +65,8 @@ def calc_diffsim(
             "syntax": syntax_match.corpus_syntax_intermediate(sources, references, hypotheses, lang, tree_sitter_language),  # type: ignore
             "dataflow": dataflow_match.corpus_dataflow_intermediate(sources, references, hypotheses, lang, tree_sitter_language),  # type: ignore
         }
-    ngram_match_score, p_n = ngram_match.corpus_gleu_score(intermediates["ngram"], n_weights, {}, penalty[0])
-    weighted_ngram_match_score, wp_n = ngram_match.corpus_gleu_score(intermediates["ngram"], n_weights, key_weights, penalty[1])
+    ngram_match_score = ngram_match.corpus_gleu_score(intermediates["ngram"], n_weights, {}, penalty[0])
+    weighted_ngram_match_score = ngram_match.corpus_gleu_score(intermediates["ngram"], n_weights, key_weights, penalty[1])
     syntax_match_score = syntax_match.corpus_syntax_score(intermediates["syntax"], penalty[2])
     dataflow_match_score = dataflow_match.corpus_dataflow_score(intermediates["dataflow"], penalty[3])
 
@@ -81,8 +81,6 @@ def calc_diffsim(
         "weighted_ngram_match_score": zeroed_scores[1],
         "syntax_match_score": zeroed_scores[2],
         "dataflow_match_score": zeroed_scores[3],
-        # } | {f"p_{n+1}": p_i[0]/(p_i[1] or 1) for n, p_i in enumerate(p_n)
-        # } | {f"wp_{n+1}": wp_i[0]/(wp_i[1] or 1) for n, wp_i in enumerate(wp_n)
     } | (
         {
             "intermediates": intermediates,

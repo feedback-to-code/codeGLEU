@@ -18,7 +18,7 @@ from .parser import (
     tree_to_token_index,
     try_remove_comments_and_docstrings,
 )
-from .utils import get_tree_sitter_language
+from .utils import get_tree_sitter_language, multirefscores
 
 dfg_function = {
     "python": DFG_python,
@@ -97,30 +97,35 @@ def corpus_dataflow_score(
     match_count = 0
     total_count = 0
 
-    for source_interm, reference_interms, hypothesis_interm in zip(intermediates["s_interm"], intermediates["r_interms"], intermediates["h_interm"]):
-        for reference_interm in reference_interms:
-            source_interm = Counter(source_interm)
-            reference_interm = Counter(reference_interm)
-            hypothesis_interm = Counter(hypothesis_interm)
+    source_interm = intermediates["s_interm"][0]
+    hypothesis_interm = intermediates["h_interm"][0]
+    reference_interms = [ri[0] for ri in intermediates["r_interms"]]
+    scores = []
 
-            ref_added = reference_interm - (source_interm & reference_interm)
-            ref_removed = source_interm - (source_interm & reference_interm)
-            hyp_added = hypothesis_interm - (source_interm & hypothesis_interm)
-            hyp_removed = source_interm - (source_interm & hypothesis_interm)
-            correct_changes = ((ref_added & hyp_added) + (ref_removed & hyp_removed)).total()
-            wrong_changes = ((hyp_added - ref_added) + (hyp_removed - ref_removed)).total()
-            total_changes = (ref_added + ref_removed).total()
-            match_count += max(0, correct_changes - penalty * wrong_changes)
-            total_count += max(0, total_changes)
+    for reference_interm in reference_interms:
+        source_interm = Counter(source_interm)
+        reference_interm = Counter(reference_interm)
+        hypothesis_interm = Counter(hypothesis_interm)
 
-    if total_count == 0:
-        # logging.warning(
-        #     "WARNING: There is no reference data-flows extracted from the whole corpus, "
-        #     "and the data-flow match score degenerates to 0. Please consider ignoring this score."
-        # )
+        ref_added = reference_interm - source_interm
+        ref_removed = source_interm - reference_interm
+        hyp_added = hypothesis_interm - source_interm
+        hyp_removed = source_interm - hypothesis_interm
+
+        correct_changes = ((ref_added & hyp_added) + (ref_removed & hyp_removed)).total()
+        wrong_changes = ((hyp_added - ref_added) + (hyp_removed - ref_removed)).total()
+        total_changes = (ref_added + ref_removed).total()
+        match_count += max(0, correct_changes - penalty * wrong_changes)
+        total_count += max(0, total_changes)
+
+        if total_count != 0:
+            score = match_count / total_count
+            scores.append(score)
+
+    if scores == []:
         return -1.0
-    score = match_count / total_count
-    return score
+
+    return multirefscores(scores)
 
 
 def get_data_flow(code, parser):
