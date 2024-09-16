@@ -101,15 +101,20 @@ for score in rankdict:
             denominator += 1
     accuracies[score] = numerator/denominator
 distances = {}
+max_distances = {}
 for score in rankdict:
     ranking = rankdict[score]
     numerator = 0
     denominator = 0
+    maxdist = 0
     for n in ranking.keys():
         p1 = ranking[n]
         p2 = actualpos[n]
-        numerator += abs(p1-p2)
+        dist = abs(p1-p2)
+        maxdist = max(maxdist, dist)
+        numerator += dist
         denominator += 1
     distances[score] = numerator/denominator
+    max_distances[score] = maxdist
 print("Accuracies: " + str(accuracies))
 print("Distances: " + str(distances))

@@ -129,7 +129,7 @@ def corpus_gleu_score(
                 p_n[n][0] += max(0, score)
                 p_n[n][1] += max(0, weighted_count(reference_interm_n))
 
-    if p_n[0][1] == 0:
+    if [True for p_i in p_n if p_i[1] == 0]:
         # logging.warning(
         #     "WARNING: There is no reference ngrams extracted from the whole corpus, "
         #     "and the ngram match score degenerates to 0. Please consider ignoring this score."

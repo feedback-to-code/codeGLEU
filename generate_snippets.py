@@ -26,7 +26,7 @@ class BlockType(int, Enum):
 def generate_snippets(
     file: str,
     create_class_subsnippets: bool = True,
-    include_class: bool = True,
+    include_class: bool = False,
 ) -> Tuple[list[str], list[BlockType]]:
     lines: list[str] = file.split("\n")  # files contain header
     lastline = next((l for l in lines.__reversed__() if l != ""), lines[-1])
