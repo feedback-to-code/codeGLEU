@@ -26,8 +26,8 @@ def calc_diffsim(
     """Calculate codegleu score
 
     Args:
-        predictions: list of predictions
-        references: list of lists with references
+        predictions: list of predictions. each entry should be a hypothesis solution
+        references: list of lists with references. each entry should be a list of references for a given hypothesis solution
         lang: input language, one of AVAILABLE_LANGS
         weights: weights of the ngram_match, weighted_ngram_match, syntax_match, and dataflow_match respectively
         tokenizer: tokenizer function, Defaults to lambda s: s.split()

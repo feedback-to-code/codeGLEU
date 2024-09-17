@@ -94,36 +94,29 @@ def corpus_dataflow_score(
     intermediates: dict[str, list],
     penalty: float = 1,
 ) -> float:
-    match_count = 0
-    total_count = 0
+    refs = {}
+    
+    for source, references_sample, hypothesis in zip(intermediates["s_interm"], intermediates["r_interms"], intermediates["h_interm"]):
+        for index, reference in enumerate(references_sample):
+            source_interm = Counter(source)
+            reference_interm = Counter(reference)
+            hypothesis_interm = Counter(hypothesis)
 
-    source_interm = intermediates["s_interm"][0]
-    hypothesis_interm = intermediates["h_interm"][0]
-    reference_interms = [ri[0] for ri in intermediates["r_interms"]]
-    scores = []
+            ref_added = reference_interm - source_interm
+            ref_removed = source_interm - reference_interm
+            hyp_added = hypothesis_interm - source_interm
+            hyp_removed = source_interm - hypothesis_interm
+            
+            correct_changes = ((ref_added & hyp_added) + (ref_removed & hyp_removed)).total()
+            wrong_changes = ((hyp_added - ref_added) + (hyp_removed - ref_removed)).total()
+            total_changes = (ref_added + ref_removed).total()
 
-    for reference_interm in reference_interms:
-        source_interm = Counter(source_interm)
-        reference_interm = Counter(reference_interm)
-        hypothesis_interm = Counter(hypothesis_interm)
+            if total_changes != 0:
+                if index not in refs: refs[index] = [0, 0]
+                refs[index][0] += max(0, correct_changes - penalty * wrong_changes)
+                refs[index][1] += total_changes
 
-        ref_added = reference_interm - source_interm
-        ref_removed = source_interm - reference_interm
-        hyp_added = hypothesis_interm - source_interm
-        hyp_removed = source_interm - hypothesis_interm
-
-        correct_changes = ((ref_added & hyp_added) + (ref_removed & hyp_removed)).total()
-        wrong_changes = ((hyp_added - ref_added) + (hyp_removed - ref_removed)).total()
-        total_changes = (ref_added + ref_removed).total()
-        match_count += max(0, correct_changes - penalty * wrong_changes)
-        total_count += max(0, total_changes)
-
-        if total_count != 0:
-            score = match_count / total_count
-            scores.append(score)
-
-    if scores == []:
-        return -1.0
+    scores = [(v[0] / v[1]) if v[1] else -1 for _, v in sorted(refs.items())]
 
     return multirefscores(scores)
 

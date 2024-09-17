@@ -377,11 +377,11 @@ def score_instances():
 
 
 def recalc(instance):
-    # if instance["instance_id"] in extraref_intermediates:
-    #     newintermediates = instance["intermediates"]
-    #     for key in newintermediates:
-    #         newintermediates[key]["r_interms"] += extraref_intermediates[instance["instance_id"]][key]["r_interms"]
-    #     instance["diffsim"] = diffsim.calc_diffsim([], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=newintermediates, weights=conf["weights"])
+    if instance["instance_id"] in extraref_intermediates:
+        newintermediates = instance["intermediates"]
+        for key in newintermediates:
+            newintermediates[key]["r_interms"] += extraref_intermediates[instance["instance_id"]][key]["r_interms"]
+        instance["diffsim"] = diffsim.calc_diffsim([], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=newintermediates, weights=conf["weights"])
     if "unchangedpercentage" not in instance or not instance["unchangedpercentage"]:
         filelen = 0
         patchlen = 0
@@ -417,16 +417,16 @@ conf = {
     "rankingscores_loc": f"./results/rankingscores.txt", 
 }
 
-# extraref_intermediates = {}
-# with open("data/models/20240820_honeycomb/scored_instances.jsonl") as fp:
-#     for line in tqdm.tqdm(fp):
-#         inst = json.loads(line)
-#         intermediates = inst["intermediates"]
-#         for key in intermediates:
-#             intermediates[key] = {"r_interms": [intermediates[key]["h_interm"]]}
-#         extraref_intermediates[inst["instance_id"]] = intermediates
-#         del inst
-# pass
+extraref_intermediates = {}
+with open("data/models/20240820_honeycomb/scored_instances.jsonl") as fp:
+    for line in tqdm.tqdm(fp):
+        inst = json.loads(line)
+        intermediates = inst["intermediates"]
+        for key in intermediates:
+            intermediates[key] = {"r_interms": [intermediates[key]["h_interm"]]}
+        extraref_intermediates[inst["instance_id"]] = intermediates
+        del inst
+pass
 def main():
     conf["instances_dir"] = f"{conf['data_dir']}/instances"
     conf["model_path"] = f"{conf['data_dir']}/models/{conf['model']}"
@@ -497,11 +497,10 @@ def main():
     with open(conf["results_loc"], "r") as fp:
         results = json.load(fp)
         for instance in scored:
-            # if instance["instance_id"] not in extraref_intermediates:
-            #     continue
+            if instance["instance_id"] not in extraref_intermediates:
+                continue
             if instance["instance_id"] in results["resolved"]:
                 resolved.append(instance)
-            # elif instance["instance_id"] in results["applied"]:
             else:
                 notresolved.append(instance)
 

@@ -102,49 +102,47 @@ def corpus_gleu_score(
         default_key_weight = 1
         key_weights = {}
     
-    source_interm = intermediates["s_interm"][0]
-    hypothesis_interm = intermediates["h_interm"][0]
-    reference_interms = [ri[0] for ri in intermediates["r_interms"]]
+    ref_ps = {}
+    for source, references_sample, hypothesis in zip(intermediates["s_interm"], intermediates["r_interms"], intermediates["h_interm"]):
+        hyp_len = Counter(hypothesis[0]).total()
+        hyp_lengths += hyp_len
+        ref_lens = (Counter(reference[0]).total() for reference in references_sample)
+        ref_lengths += min(ref_lens, key=lambda ref_len: (abs(ref_len - hyp_len), ref_len))
+
+        for index, reference in enumerate(references_sample):
+            for n in range(0, len(n_weights)):
+                source_interm_n = Counter(source[n])
+                reference_interm_n = Counter(reference[n])
+                hypothesis_interm_n = Counter(hypothesis[n])
+
+                def weighted_value(ngram, count):
+                    for key in key_weights:
+                        if f"('{key}'," in ngram:
+                            return count * key_weights[key]
+                    return count * default_key_weight
+
+                weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
+
+                ref_added = reference_interm_n - source_interm_n
+                ref_removed = source_interm_n - reference_interm_n
+                hyp_added = hypothesis_interm_n - source_interm_n
+                hyp_removed = source_interm_n - hypothesis_interm_n
+
+                correct_changes = weighted_count((ref_added & hyp_added) + (ref_removed & hyp_removed))
+                wrong_changes = weighted_count((hyp_added - ref_added) + (hyp_removed - ref_removed))
+                total_changes = weighted_count(ref_added + ref_removed)
+                if index not in ref_ps:
+                    ref_ps[index] = [[0, 0] for _ in range(0, len(n_weights))]
+                ref_ps[index][n][0] += max(0, correct_changes - penalty * wrong_changes)
+                ref_ps[index][n][1] += total_changes
     scores = []
-
-    hyp_len = Counter(hypothesis_interm[0]).total()
-    hyp_lengths += hyp_len
-    ref_lens = (Counter(reference_interm[0]).total() for reference_interm in reference_interms)
-    ref_lengths += min(ref_lens, key=lambda ref_len: (abs(ref_len - hyp_len), ref_len))
-    for reference_interm in reference_interms:
-        p_n = [[0, 0] for _ in range(0, len(n_weights))]
-        for n in range(0, len(n_weights)):
-            source_interm_n = Counter(source_interm[n])
-            reference_interm_n = Counter(reference_interm[n])
-            hypothesis_interm_n = Counter(hypothesis_interm[n])
-
-            def weighted_value(ngram, count):
-                for key in key_weights:
-                    if f"('{key}'," in ngram:
-                        return count * key_weights[key]
-                return count * default_key_weight
-
-            weighted_count = lambda mydict: sum([weighted_value(ngram, count) for ngram, count in mydict.items()])
-
-            ref_added = reference_interm_n - source_interm_n
-            ref_removed = source_interm_n - reference_interm_n
-            hyp_added = hypothesis_interm_n - source_interm_n
-            hyp_removed = source_interm_n - hypothesis_interm_n
-
-            correct_changes = weighted_count((ref_added & hyp_added) + (ref_removed & hyp_removed))
-            wrong_changes = weighted_count((hyp_added - ref_added) + (hyp_removed - ref_removed))
-            total_changes = weighted_count(ref_added + ref_removed)
-            p_n[n][0] += max(0, correct_changes - penalty * wrong_changes)
-            p_n[n][1] += max(0, total_changes)
-
-        if p_n[0][1] != 0:
+    for _, p_n in sorted(ref_ps.items()):
+        if not [True for p_i in p_n if p_i[1] == 0]: 
             bp = brevity_penalty(ref_lengths, hyp_lengths)
             p_n = smoothing_function(p_n)
             sgen = (w_i * math.log(p_i[0] / p_i[1]) for w_i, p_i in zip(n_weights, p_n))
             s: float = bp * math.exp(math.fsum(sgen))
             scores.append(s)
-
-    if scores == []:
-        return -1.0
-    
+        else:
+            scores.append(0)
     return multirefscores(scores)
