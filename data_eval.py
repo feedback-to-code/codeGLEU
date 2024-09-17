@@ -18,6 +18,7 @@ def pad(s, ln, pos: str):
 
 preds = "./data/models/20240402_sweagent_gpt4/all_preds.jsonl"
 preprocessed = "./data/models/20240402_sweagent_gpt4/preprocessed_instances.jsonl"
+scored = "./data/models/20240402_sweagent_gpt4/scored_instances.jsonl"
 
 data = {}
 default_data = {
@@ -31,6 +32,8 @@ default_data = {
     r"# Lines Removed": [],
     r"# Lines per File": [],
     r"% File Unmodified": [], 
+    r"CodeBLEU score": [], 
+    r"FRITS score": [], 
 }
 
 with open(preds) as fp:
@@ -78,7 +81,7 @@ with open(preprocessed) as fp:
         numfiles = 0
         patchfiles = 0
         editedlines = 0
-        if instance["model_patch"] is None or not instance["model_patch"]:
+        if "model_patch" not in instance or not instance["model_patch"]:
             continue
         modifiedpercent = []
         for file in instance["source_files_content"]:
@@ -96,6 +99,14 @@ with open(preprocessed) as fp:
         if numfiles > 0:
             data[repo]["# Lines per File"].append(totallines / numfiles)
             data[repo][r"% File Unmodified"].append(1 - sum(modifiedpercent) / len(modifiedpercent))
+
+
+with open(scored) as fp:
+    for line in tqdm.tqdm(fp):
+        instance = json.loads(line)
+        data[repo]["CodeBLEU score"].append(instance["codebleu"]["codebleu"])
+        data[repo]["FRITS score"].append(instance["diffsim"]["diffsim"])
+
 total = default_data
 for repo in data:
     for key in default_data:
