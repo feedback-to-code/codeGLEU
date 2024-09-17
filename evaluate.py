@@ -377,14 +377,14 @@ def score_instances():
 
 
 def recalc(instance):
-    if instance["instance_id"] in extraref_intermediates:
-        newintermediates = instance["intermediates"]
-        extraintermediates = extraref_intermediates[instance["instance_id"]]
-        for key in newintermediates:
-            for index in range(0, len(newintermediates[key]["r_interms"])):
-                if index < len(extraintermediates[key]["r_interms"]):
-                    newintermediates[key]["r_interms"][index] += extraintermediates[key]["r_interms"][index]
-        instance["diffsim"] = diffsim.calc_diffsim([], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=newintermediates, weights=conf["weights"])
+    # if instance["instance_id"] in extraref_intermediates:
+    #     newintermediates = instance["intermediates"]
+    #     extraintermediates = extraref_intermediates[instance["instance_id"]]
+    #     for key in newintermediates:
+    #         for index in range(0, len(newintermediates[key]["r_interms"])):
+    #             if index < len(extraintermediates[key]["r_interms"]):
+    #                 newintermediates[key]["r_interms"][index] += extraintermediates[key]["r_interms"][index]
+    #     instance["diffsim"] = diffsim.calc_diffsim([], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=newintermediates, weights=conf["weights"])
     if "unchangedpercentage" not in instance or not instance["unchangedpercentage"]:
         filelen = 0
         patchlen = 0
@@ -420,16 +420,16 @@ conf = {
     "rankingscores_loc": f"./results/rankingscores.txt", 
 }
 
-extraref_intermediates = {}
-with open("data/models/20240820_honeycomb/scored_instances.jsonl") as fp:
-    for line in tqdm.tqdm(fp):
-        inst = json.loads(line)
-        intermediates = inst["intermediates"]
-        for key in intermediates:
-            intermediates[key] = {"r_interms": [[i] for i in intermediates[key]["h_interm"]]}
-        extraref_intermediates[inst["instance_id"]] = intermediates
-        del inst
-pass
+# extraref_intermediates = {}
+# with open("data/models/20240820_honeycomb/scored_instances.jsonl") as fp:
+#     for line in tqdm.tqdm(fp):
+#         inst = json.loads(line)
+#         intermediates = inst["intermediates"]
+#         for key in intermediates:
+#             intermediates[key] = {"r_interms": [[i] for i in intermediates[key]["h_interm"]]}
+#         extraref_intermediates[inst["instance_id"]] = intermediates
+#         del inst
+# pass
 def main():
     conf["instances_dir"] = f"{conf['data_dir']}/instances"
     conf["model_path"] = f"{conf['data_dir']}/models/{conf['model']}"
@@ -500,8 +500,8 @@ def main():
     with open(conf["results_loc"], "r") as fp:
         results = json.load(fp)
         for instance in scored:
-            if instance["instance_id"] not in extraref_intermediates:
-                continue
+            # if instance["instance_id"] not in extraref_intermediates:
+            #     continue
             if instance["instance_id"] in results["resolved"]:
                 resolved.append(instance)
             else:
@@ -590,13 +590,29 @@ def main():
         for p in plots:
             p.set_ylim(top = maxlim, bottom = 0)
         plt.subplots_adjust(hspace = 0.4, wspace = 0.4)
-        fig.savefig(f"{conf['figs_loc']}/{n}_scores.png")
+        fig.savefig(f"{conf['figs_loc']}/{n}_scores.png", bbox_inches='tight')
         plt.close()
+
+    fig, axs = plt.subplots(ncols=3, figsize=(15, 5))
+    plots = []
+    for i, n in enumerate(["codebleu", "codegleu", "diffsim"]):
+        data = [s[n] | {"group": "resolved" if r else "not resolved"} for s, r in zip(toscore, resornot)]
+        p = sns.histplot(x=n, hue="group", data=pd.DataFrame(data), palette={"resolved": "green", "not resolved": "red"}, binwidth=0.02, ax=axs[i])
+        names = {"codebleu": "CodeBLEU", "codegleu": "CodeGLEU", "diffsim": "FRITS"}
+        p.set(xlabel=(names[n] if n in names else n))
+        plots.append(p)
+    maxlim = max([p.get_ylim()[1] for p in plots])
+    for p in plots:
+        p.set_ylim(top = maxlim, bottom = 0)
+    plt.subplots_adjust(hspace = 0.4, wspace = 0.4)
+    fig.savefig(f"{conf['figs_loc']}/all_scores.png", bbox_inches='tight')
+    plt.close()
+
     sns.regplot(x=[i["diffsim"]["diffsim"] for i in toscore], y=resornot)
-    plt.savefig(f"{conf['figs_loc']}/resornot_vs_diffsim.png")
+    plt.savefig(f"{conf['figs_loc']}/resornot_vs_diffsim.png", bbox_inches='tight')
     plt.close()
     sns.regplot(x=[i["unchangedpercentage"] for i in toscore], y=[i["codebleu"]["codebleu"] for i in toscore])
-    plt.savefig(f"{conf['figs_loc']}/codebleu_vs_unchangedpercent.png")
+    plt.savefig(f"{conf['figs_loc']}/codebleu_vs_unchangedpercent.png", bbox_inches='tight')
     plt.close()
     scoregroups = [
         {"name": "bleu", "scores": [i["bleu"]["bleu"] for i in toscore]},
@@ -612,7 +628,7 @@ def main():
     df = pd.DataFrame(scoregroups)
     for n in ["mvr_c", "mvr_p", "mvp_c", "mvp_p"]:
         sns.barplot(x=df["name"], y=df[n])
-        plt.savefig(f"{conf['figs_loc']}/score {n} bars.png")
+        plt.savefig(f"{conf['figs_loc']}/score {n} bars.png", bbox_inches='tight')
         plt.close()
     wandb.finish()
 

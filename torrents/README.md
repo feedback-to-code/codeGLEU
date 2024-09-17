@@ -6,5 +6,6 @@ All torrents come in encrypted rar files, with a shared password 'FRITS'.
 
 The following torrents are available:
 
-RankingData.rar: Evaluation data for all of the lite entries, alongside figs & results, as well as the script used to calculate the ranking.    
+EvaluationData.rar: Data, scripts, environment and instructions required to run evaluation experiment.    
+RankingData.rar: Data, scripts, environment and instructions required to run ranking experiment.    
 MultirefData.rar: Data, scripts, environment and instructions required to run multi-ref experiment.    
