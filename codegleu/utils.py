@@ -210,6 +210,6 @@ def avg(l):
     return sum(l) / len(l)
 
 def multirefscores(scores: list[float]):
-    if scores == []:
+    if scores == [] or not [s for s in scores if s != -1]:
         return -1
     return max(scores)

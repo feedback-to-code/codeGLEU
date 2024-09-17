@@ -111,10 +111,9 @@ def corpus_dataflow_score(
             wrong_changes = ((hyp_added - ref_added) + (hyp_removed - ref_removed)).total()
             total_changes = (ref_added + ref_removed).total()
 
-            if total_changes != 0:
-                if index not in refs: refs[index] = [0, 0]
-                refs[index][0] += max(0, correct_changes - penalty * wrong_changes)
-                refs[index][1] += total_changes
+            if index not in refs: refs[index] = [0, 0]
+            refs[index][0] += max(0, correct_changes - penalty * wrong_changes)
+            refs[index][1] += total_changes
 
     scores = [(v[0] / v[1]) if v[1] else -1 for _, v in sorted(refs.items())]
 

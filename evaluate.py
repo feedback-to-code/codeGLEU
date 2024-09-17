@@ -379,8 +379,11 @@ def score_instances():
 def recalc(instance):
     if instance["instance_id"] in extraref_intermediates:
         newintermediates = instance["intermediates"]
+        extraintermediates = extraref_intermediates[instance["instance_id"]]
         for key in newintermediates:
-            newintermediates[key]["r_interms"] += extraref_intermediates[instance["instance_id"]][key]["r_interms"]
+            for index in range(0, len(newintermediates[key]["r_interms"])):
+                if index < len(extraintermediates[key]["r_interms"]):
+                    newintermediates[key]["r_interms"][index] += extraintermediates[key]["r_interms"][index]
         instance["diffsim"] = diffsim.calc_diffsim([], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=newintermediates, weights=conf["weights"])
     if "unchangedpercentage" not in instance or not instance["unchangedpercentage"]:
         filelen = 0
@@ -423,7 +426,7 @@ with open("data/models/20240820_honeycomb/scored_instances.jsonl") as fp:
         inst = json.loads(line)
         intermediates = inst["intermediates"]
         for key in intermediates:
-            intermediates[key] = {"r_interms": [intermediates[key]["h_interm"]]}
+            intermediates[key] = {"r_interms": [[i] for i in intermediates[key]["h_interm"]]}
         extraref_intermediates[inst["instance_id"]] = intermediates
         del inst
 pass

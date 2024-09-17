@@ -131,8 +131,7 @@ def corpus_gleu_score(
                 correct_changes = weighted_count((ref_added & hyp_added) + (ref_removed & hyp_removed))
                 wrong_changes = weighted_count((hyp_added - ref_added) + (hyp_removed - ref_removed))
                 total_changes = weighted_count(ref_added + ref_removed)
-                if index not in ref_ps:
-                    ref_ps[index] = [[0, 0] for _ in range(0, len(n_weights))]
+                if index not in ref_ps: ref_ps[index] = [[0, 0] for _ in range(0, len(n_weights))]
                 ref_ps[index][n][0] += max(0, correct_changes - penalty * wrong_changes)
                 ref_ps[index][n][1] += total_changes
     scores = []
@@ -144,5 +143,5 @@ def corpus_gleu_score(
             s: float = bp * math.exp(math.fsum(sgen))
             scores.append(s)
         else:
-            scores.append(0)
+            scores.append(-1)
     return multirefscores(scores)
