@@ -4,7 +4,7 @@
 import numpy as np
 from scipy import stats
 
-def pearsonr_ci(x,y,alpha=0.1):
+def pearsonr_ci(x,y,alpha=0.05):
     ''' calculate Pearson correlation along with the confidence interval using scipy and numpy
     Parameters
     ----------

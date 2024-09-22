@@ -573,18 +573,22 @@ def main():
                 scores = [i[group][submetric] for i in toscore]
                 write_log(f"    {submetric + ' ' * (padlen-len(submetric))} ", end="")
                 pr = pearsonr_ci(scores, resornot)
-                write_log(f" {'%.2f' % (pr[0] * 100)}, {pr[1]}, {'%.2f' % (pr[2] * 100)} - {'%.2f' % (pr[3] * 100)}", end = "")
+                write_log(f" {'%.2f' % (pr[0] * 100)}, {'%.2f' % pr[1]}, {'%.2f' % (pr[2] * 100)} - {'%.2f' % (pr[3] * 100)}", end = "")
                 pr = pearsonr_ci(scores, [i["unchangedpercentage"] for i in toscore])
-                write_log(f" {'%.2f' % (pr[0] * 100)}, {pr[1]}, {'%.2f' % (pr[2] * 100)} - {'%.2f' % (pr[3] * 100)}")
-    for group in ["codebleu", "codebleu_patch", "codegleu", "diffsim"]:
+                write_log(f" {'%.2f' % (pr[0] * 100)}, {'%.2f' % pr[1]}, {'%.2f' % (pr[2] * 100)} - {'%.2f' % (pr[3] * 100)}")
+    groups = ["codebleu", "codebleu_patch", "codegleu", "diffsim"]
+    for group in groups:
         write_log(f"Performing Ablation Study for {group}")
-        submetrics = {k: v for k,v in toscore[0][group].items() if k != group}
-        if isinstance(submetrics, dict):
-            for submetric in submetrics:
-                scores = [avg([v for k, v in i[group].items() if k != submetric]) for i in toscore]
-                write_log(f"  - {submetric + ' ' * (padlen-len(submetric))} ", end="")
-                pr = pearsonr_ci(scores, resornot)
-                write_log(f" {'%.2f' % (pr[0] * 100)}, {pr[1]}, {'%.2f' % (pr[2] * 100)} - {'%.2f' % (pr[3] * 100)}")
+        submetrics = [k for k in toscore[0][group].keys() if k not in groups]
+        for submetric in submetrics:
+            names = {"ngram_match_score": "Match$_{df}$", "weighted_ngram_match_score": "Match$_{kw}$", "syntax_match_score": "Match$_{ast}$", "dataflow_match_score": "Match$_{df}$"}
+            scores = [avg([v for k, v in i[group].items() if k != submetric and k in submetrics]) for i in toscore]
+            smname = names[submetric]
+            write_log(f"  - {smname + ' ' * (padlen-len(smname))} ", end="")
+            pr = pearsonr_ci(scores, resornot)
+            write_log(f" {'%.2f' % (pr[0] * 100)}, {'%.2f' % pr[1]}, {'%.2f' % (pr[2] * 100)} - {'%.2f' % (pr[3] * 100)}", end = "")
+            pr = pearsonr_ci(scores, [i["unchangedpercentage"] for i in toscore])
+            write_log(f" {'%.2f' % (pr[0] * 100)}, {'%.2f' % pr[1]}, {'%.2f' % (pr[2] * 100)} - {'%.2f' % (pr[3] * 100)}")
     if not os.path.exists(conf["figs_loc"]):
         os.mkdir(conf["figs_loc"])
     for n in ["codebleu", "codebleu_patch", "codegleu", "diffsim"]:
