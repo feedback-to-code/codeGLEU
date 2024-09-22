@@ -14,35 +14,55 @@ pred_instances = 2283
  total_code_files = 8
 
 Instances. 1316. resolved: 275. not resolved: 1041. % resolved: 0.20896656534954408
-Total Instance Averages:        BLEU: 0.9583939401960814 CodeBLEU: 0.8925906609847737 CodeGLEU: 0.8158725965089308 CodeBLEU_p: 0.329221815366154 FRITS: 0.20431138080910746
-Resolved Instance Averages:     BLEU: 0.9884376310148028 CodeBLEU: 0.947581490816113 CodeGLEU: 0.8897692477468763 CodeBLEU_p: 0.4549374052297328 FRITS: 0.43514786571593383
-Non-Resolved Instance Averages: BLEU: 0.9504573263870998 CodeBLEU: 0.8780637847084825 CodeGLEU: 0.7963513870080321 CodeBLEU_p: 0.29601164513322026 FRITS: 0.14333152168386443
+Total Instance Averages:        BLEU: 0.9583939401960814 CodeBLEU: 0.8925906609847737 CodeGLEU: 0.8158725965089308 CodeBLEU_p: 0.329221815366154 FRITS: 0.20322955201123866
+Resolved Instance Averages:     BLEU: 0.9884376310148028 CodeBLEU: 0.947581490816113 CodeGLEU: 0.8897692477468763 CodeBLEU_p: 0.4549374052297328 FRITS: 0.4360815266275512
+Non-Resolved Instance Averages: BLEU: 0.9504573263870998 CodeBLEU: 0.8780637847084825 CodeGLEU: 0.7963513870080321 CodeBLEU_p: 0.29601164513322026 FRITS: 0.14171726284746672
 Patch percentage vs resolved:   Correlation: 0.08985264144464289 P-Value: 0.001102149224076124 
                                 metric vs resolved          metric vs unchangedpercent
                                 Correlation   P-Value       Correlation   P-Value
-Performing Ablation Study for bleu
-    bleu                        0.1589565070, 6.717454114784608e-09 0.8473011582, 0.0
+Performing Submetric Study for bleu
+    bleu                        15.90, 0.00, 10.58 - 21.12 84.73, 0.00, 83.13 - 86.19
+Performing Submetric Study for codebleu
+    codebleu                    25.18, 0.00, 20.05 - 30.17 60.03, 0.00, 56.46 - 63.38
+    ngram_match_score           15.90, 0.00, 10.58 - 21.12 84.73, 0.00, 83.13 - 86.19
+    weighted_ngram_match_score  15.89, 0.00, 10.58 - 21.11 84.70, 0.00, 83.10 - 86.16
+    syntax_match_score          16.03, 0.00, 10.72 - 21.25 82.38, 0.00, 80.57 - 84.05
+    dataflow_match_score        22.57, 0.00, 17.38 - 27.64 14.69, 0.00, 9.36 - 19.94
+Performing Submetric Study for codebleu_patch
+    codebleu                    29.46, 0.00, 24.45 - 34.32 16.27, 0.00, 10.96 - 21.49
+    ngram_match_score           31.91, 0.00, 26.97 - 36.68 12.61, 0.00, 7.26 - 17.89
+    weighted_ngram_match_score  31.84, 0.00, 26.90 - 36.62 12.70, 0.00, 7.35 - 17.98
+    syntax_match_score          27.19, 0.00, 22.11 - 32.12 17.09, 0.00, 11.79 - 22.29
+    dataflow_match_score        18.77, 0.00, 13.50 - 23.93 16.83, 0.00, 11.54 - 22.04
+Performing Submetric Study for codegleu
+    codegleu                    27.64, 0.00, 22.58 - 32.56 61.92, 0.00, 58.47 - 65.15
+    ngram_match_score           16.01, 0.00, 10.70 - 21.23 83.25, 0.00, 81.51 - 84.83
+    weighted_ngram_match_score  15.67, 0.00, 10.35 - 20.90 82.35, 0.00, 80.53 - 84.02
+    syntax_match_score          14.49, 0.00, 9.16 - 19.74 84.43, 0.00, 82.81 - 85.92
+    dataflow_match_score        31.58, 0.00, 26.63 - 36.36 16.32, 0.00, 11.01 - 21.53
+Performing Submetric Study for diffsim
+    diffsim                     49.15, 0.00, 44.94 - 53.14 7.89, 0.00, 2.49 - 13.23
+    ngram_match_score           45.45, 0.00, 41.06 - 49.64 4.91, 0.07, -0.49 - 10.29
+    weighted_ngram_match_score  46.57, 0.00, 42.23 - 50.70 9.49, 0.00, 4.11 - 14.82
+    syntax_match_score          40.91, 0.00, 36.30 - 45.31 3.82, 0.17, -1.59 - 9.20
+    dataflow_match_score        35.58, 0.00, 30.77 - 40.21 6.95, 0.01, 1.55 - 12.31
 Performing Ablation Study for codebleu
-    codebleu                    0.2518162588, 1.7552075279260742e-20 0.6003273597, 1.118389074010603e-129
-    ngram_match_score           0.1589565070, 6.717454114784608e-09 0.8473011582, 0.0
-    weighted_ngram_match_score  0.1588843194, 6.825081998630237e-09 0.8470464522, 0.0
-    syntax_match_score          0.1602713817, 5.022469625450501e-09 0.8238499994, 0.0
-    dataflow_match_score        0.2257018085, 1.1604543587447558e-16 0.1469181434, 8.616479400166869e-08
+  - Match$_{df}$                25.39, 0.00, 20.27 - 30.38 48.70, 0.00, 44.47 - 52.72
+  - Match$_{kw}$                25.40, 0.00, 20.28 - 30.39 48.76, 0.00, 44.53 - 52.77
+  - Match$_{ast}$               25.29, 0.00, 20.16 - 30.28 52.39, 0.00, 48.36 - 56.20
+  - Match$_{df}$                16.18, 0.00, 10.88 - 21.40 85.44, 0.00, 83.91 - 86.83
 Performing Ablation Study for codebleu_patch
-    codebleu                    0.2946002471, 9.227000509911853e-28 0.1627077660, 2.9117997216034232e-09
-    ngram_match_score           0.3191150289, 1.5520821579234037e-32 0.1261208945, 4.448623212779549e-06
-    weighted_ngram_match_score  0.3184347500, 2.1358829036092952e-32 0.1270077438, 3.8047342384905147e-06
-    syntax_match_score          0.2718704703, 9.867591103842999e-24 0.1708709893, 4.412726112632493e-10
-    dataflow_match_score        0.1876917212, 6.721590820539205e-12 0.1683450900, 7.990816362237227e-10
+  - Match$_{df}$                27.73, 0.00, 22.66 - 32.64 16.99, 0.00, 11.69 - 22.19
+  - Match$_{kw}$                27.75, 0.00, 22.68 - 32.66 16.96, 0.00, 11.67 - 22.17
+  - Match$_{ast}$               29.52, 0.00, 24.50 - 34.37 15.56, 0.00, 10.24 - 20.79
+  - Match$_{df}$                31.67, 0.00, 26.73 - 36.45 14.84, 0.00, 9.52 - 20.09
 Performing Ablation Study for codegleu
-    codegleu                    0.2764234745, 1.6479790601267956e-24 0.6192180174, 3.699781860611589e-140
-    ngram_match_score           0.1601131760, 5.2019632109782616e-09 0.8324594644, 0.0
-    weighted_ngram_match_score  0.1566949960, 1.1014935048795484e-08 0.8235238308, 0.0
-    syntax_match_score          0.1448739702, 1.302973847006411e-07 0.8443218520, 0.0
-    dataflow_match_score        0.3158088223, 7.268910229731752e-32 0.1631714936, 2.622363862822257e-09
+  - Match$_{df}$                32.10, 0.00, 27.17 - 36.87 50.52, 0.00, 46.38 - 54.44
+  - Match$_{kw}$                32.18, 0.00, 27.25 - 36.94 50.63, 0.00, 46.50 - 54.54
+  - Match$_{ast}$               31.98, 0.00, 27.04 - 36.75 53.33, 0.00, 49.35 - 57.09
+  - Match$_{df}$                15.79, 0.00, 10.48 - 21.02 84.96, 0.00, 83.39 - 86.40
 Performing Ablation Study for diffsim
-    diffsim                     0.4810754523, 3.5639928644445706e-77 0.0801386436, 0.0036248961181243565
-    ngram_match_score           0.4441616258, 9.827637214443003e-65 0.0507053570, 0.06593596909429768
-    weighted_ngram_match_score  0.4542688275, 5.452526695656351e-68 0.0967729191, 0.00043889143520480824
-    syntax_match_score          0.4001537779, 8.877901836997329e-52 0.0395037425, 0.15206849402835135
-    dataflow_match_score        0.3484449651, 7.317706625740726e-39 0.0697899244, 0.011327448560656093
+  - Match$_{df}$                47.99, 0.00, 43.72 - 52.05 7.93, 0.00, 2.54 - 13.28
+  - Match$_{kw}$                46.98, 0.00, 42.66 - 51.09 6.00, 0.03, 0.60 - 11.37
+  - Match$_{ast}$               48.24, 0.00, 43.98 - 52.28 8.05, 0.00, 2.66 - 13.40
+  - Match$_{df}$                47.97, 0.00, 43.70 - 52.03 6.62, 0.02, 1.22 - 11.98
