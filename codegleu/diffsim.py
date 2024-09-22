@@ -71,9 +71,10 @@ def calc_diffsim(
     dataflow_match_score = dataflow_match.corpus_dataflow_score(intermediates["dataflow"], penalty[3])
 
     scores = [ngram_match_score, weighted_ngram_match_score, syntax_match_score, dataflow_match_score]
-    zeroed_scores = [0 if score == -1 else score for score in scores]
+    zeroed_scores = [0 if score <= 0 else score for score in scores]
     usablescores = [(s, w) for (s, w) in zip(scores, weights) if s != -1]
-    uweighttotal = sum([w for (s, w) in usablescores])
+    # usablescores = [(s if s > 0 else 0, w) for (s, w) in zip(scores, weights)]
+    uweighttotal = sum([w for (_, w) in usablescores])
     diffsim_score = sum([s * w / (uweighttotal or 1) for (s, w) in usablescores])
     return {
         "diffsim": diffsim_score,

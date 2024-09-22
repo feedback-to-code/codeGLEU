@@ -31,8 +31,9 @@ import codegleu.codebleu.codebleu as codebleu
 import codegleu.codegleu.codegleu as codegleu
 import codegleu.diffsim as diffsim
 from codegleu.dataflow_match import try_remove_comments_and_docstrings
-from codegleu.utils import GenWrapper
+from codegleu.utils import GenWrapper, avg
 
+from pearsonrci import pearsonr_ci
 
 class EvalError(Exception):
     pass
@@ -385,6 +386,7 @@ def recalc(instance):
     #             if index < len(extraintermediates[key]["r_interms"]):
     #                 newintermediates[key]["r_interms"][index] += extraintermediates[key]["r_interms"][index]
     #     instance["diffsim"] = diffsim.calc_diffsim([], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=newintermediates, weights=conf["weights"])
+    instance["diffsim"] = diffsim.calc_diffsim([], [], [], lang="python", penalty=conf["diffsimpenalty"], intermediates=instance["intermediates"], weights=conf["weights"])
     if "unchangedpercentage" not in instance or not instance["unchangedpercentage"]:
         filelen = 0
         patchlen = 0
@@ -559,22 +561,30 @@ def main():
     pr = pearsonr(resornot, [i["unchangedpercentage"] for i in toscore])
     write_log(f"Patch percentage vs resolved:   Correlation: {pr[0]} P-Value: {pr[1]} ")
 
-    toscore = [i | {"bleu": {"bleu": i["bleu"]}} for i in toscore]
+    toscore: list[dict[str, dict[str, float]]] = [i | {"bleu": {"bleu": i["bleu"]}} for i in toscore]
     padlen = 26
     write_log(" " * 32 + "metric vs resolved          " + "metric vs unchangedpercent")
     write_log(" " * 32 + "Correlation   P-Value       " + "Correlation   P-Value")
     for group in ["bleu", "codebleu", "codebleu_patch", "codegleu", "diffsim"]:
+        write_log(f"Performing Submetric Study for {group}")
+        submetrics = toscore[0][group]
+        if isinstance(submetrics, dict):
+            for submetric in submetrics:
+                scores = [i[group][submetric] for i in toscore]
+                write_log(f"    {submetric + ' ' * (padlen-len(submetric))} ", end="")
+                pr = pearsonr_ci(scores, resornot)
+                write_log(f" {'%.2f' % (pr[0] * 100)}, {pr[1]}, {'%.2f' % (pr[2] * 100)} - {'%.2f' % (pr[3] * 100)}", end = "")
+                pr = pearsonr_ci(scores, [i["unchangedpercentage"] for i in toscore])
+                write_log(f" {'%.2f' % (pr[0] * 100)}, {pr[1]}, {'%.2f' % (pr[2] * 100)} - {'%.2f' % (pr[3] * 100)}")
+    for group in ["codebleu", "codebleu_patch", "codegleu", "diffsim"]:
         write_log(f"Performing Ablation Study for {group}")
-        scores = toscore[0][group]
-        if isinstance(scores, dict):
-            for score in scores:
-                write_log(f"    {score + ' ' * (padlen-len(score))} ", end="")
-                pr = pearsonr(resornot, [i[group][score] for i in toscore])
-                write_log(f" {'%.10f' % pr[0]}, " + str(pr[1]), end="")
-                wandb.log({f"mvr_{group}_{score}_corr": pr[0], f"mvr_{group}_{score}_p": pr[1]})
-                pr = pearsonr([i[group][score] for i in toscore], [i["unchangedpercentage"] for i in toscore])
-                write_log(f" {'%.10f' % pr[0]}, " + str(pr[1]))
-                wandb.log({f"mvp_{group}_{score}_corr": pr[0], f"mvp_{group}_{score}_p": pr[1]})
+        submetrics = {k: v for k,v in toscore[0][group].items() if k != group}
+        if isinstance(submetrics, dict):
+            for submetric in submetrics:
+                scores = [avg([v for k, v in i[group].items() if k != submetric]) for i in toscore]
+                write_log(f"  - {submetric + ' ' * (padlen-len(submetric))} ", end="")
+                pr = pearsonr_ci(scores, resornot)
+                write_log(f" {'%.2f' % (pr[0] * 100)}, {pr[1]}, {'%.2f' % (pr[2] * 100)} - {'%.2f' % (pr[3] * 100)}")
     if not os.path.exists(conf["figs_loc"]):
         os.mkdir(conf["figs_loc"])
     for n in ["codebleu", "codebleu_patch", "codegleu", "diffsim"]:
